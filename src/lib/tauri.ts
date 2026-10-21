@@ -10,7 +10,17 @@ export interface Session {
   hasVideo: boolean;
   hasTranscript: boolean;
   hasAnalysis: boolean;
+  /** `null` quando a sessao nao tem audio.wav. */
+  durationMs: number | null;
 }
+
+export interface Levels {
+  /** Pico de 0 a 1 desde a ultima leitura. */
+  microphone: number;
+  system: number;
+}
+
+export type SessionFile = "transcricao.md" | "analise.md" | "acoes.md" | "transcricao-pt.md";
 
 export type AudioSource = "microphone" | "system";
 
@@ -54,8 +64,8 @@ export const api = {
   pauseRecording: () => invoke<RecordingStatus>("pause_recording"),
   resumeRecording: () => invoke<RecordingStatus>("resume_recording"),
   stopRecording: () => invoke<string>("stop_recording"),
-  toggleScreenCapture: () => invoke<boolean>("toggle_screen_capture"),
   recordingStatus: () => invoke<RecordingStatus>("recording_status"),
+  recordingLevels: () => invoke<Levels>("recording_levels"),
   listInputDevices: () => invoke<InputDevices>("list_input_devices"),
   setInputDevice: (id: string | null) => invoke<void>("set_input_device", { id }),
   /** Ids das sessoes interrompidas que ganharam audio.wav. */
@@ -63,6 +73,8 @@ export const api = {
   listSessions: () => invoke<Session[]>("list_sessions"),
   getSession: (id: string) => invoke<Session>("get_session", { id }),
   openSessionFolder: (id: string) => invoke<void>("open_session_folder", { id }),
+  copyTranscriptPath: (id: string) => invoke<string>("copy_transcript_path", { id }),
+  openSessionFile: (id: string, file: SessionFile) => invoke<void>("open_session_file", { id, file }),
   getOutputDir: () => invoke<OutputDir>("get_output_dir"),
   /** `null` quando o usuario cancela o seletor. */
   chooseOutputDir: () => invoke<OutputDir | null>("choose_output_dir"),

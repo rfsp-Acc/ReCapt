@@ -13,6 +13,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .setup(|app| {
             let config_dir = app.path().app_config_dir()?;
             app.manage(settings::SettingsState::load(&config_dir));
@@ -27,12 +28,15 @@ pub fn run() {
             capture::stop_recording,
             capture::toggle_screen_capture,
             capture::recording_status,
+            capture::recording_levels,
             capture::list_input_devices,
             capture::set_input_device,
             capture::recover_interrupted,
             files::list_sessions,
             files::get_session,
             files::open_session_folder,
+            files::open_session_file,
+            files::copy_transcript_path,
             files::get_output_dir,
             files::choose_output_dir,
             files::reset_output_dir,

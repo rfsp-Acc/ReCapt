@@ -20,6 +20,8 @@ pub struct Session {
     pub has_video: bool,
     pub has_transcript: bool,
     pub has_analysis: bool,
+    /// Duracao do audio.wav, lida do cabecalho; `None` sem audio.
+    pub duration_ms: Option<u64>,
 }
 
 /// Cria a pasta da sessao com nome temporario baseado na data e hora.
@@ -66,6 +68,13 @@ pub fn get(root: &Path, id: &str) -> AppResult<Session> {
     Ok(read(root, &path))
 }
 
+/// So le o cabecalho: barato mesmo para gravacoes longas.
+fn audio_duration_ms(path: &Path) -> Option<u64> {
+    let reader = hound::WavReader::open(path).ok()?;
+    let rate = reader.spec().sample_rate as u64;
+    (rate > 0).then(|| reader.duration() as u64 * 1000 / rate)
+}
+
 fn is_month_dir(dir: &Path) -> bool {
     let Some(name) = dir.file_name().and_then(|n| n.to_str()) else { return false };
     let b = name.as_bytes();
@@ -102,6 +111,7 @@ fn read(root: &Path, path: &Path) -> Session {
         has_video: path.join("gravacao.mp4").exists(),
         has_transcript: path.join("transcricao.md").exists(),
         has_analysis: path.join("analise.md").exists(),
+        duration_ms: audio_duration_ms(&path.join("audio.wav")),
     }
 }
 

@@ -1,5 +1,6 @@
 use serde::Serialize;
 use tauri::State;
+use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_opener::OpenerExt;
 
@@ -40,6 +41,35 @@ pub fn open_session_folder(
 ) -> AppResult<()> {
     let session = session::get(&settings.output_dir()?, &id)?;
     open_path(&app, &session.path)
+}
+
+/// Abre um arquivo da sessao no app padrao do sistema. So nomes conhecidos, para nao abrir caminhos arbitrarios.
+#[tauri::command]
+pub fn open_session_file(
+    app: tauri::AppHandle,
+    settings: State<SettingsState>,
+    id: String,
+    file: String,
+) -> AppResult<()> {
+    const ALLOWED: &[&str] = &["transcricao.md", "analise.md", "acoes.md", "transcricao-pt.md", "audio.wav"];
+    let session = session::get(&settings.output_dir()?, &id)?;
+    if !ALLOWED.contains(&file.as_str()) || !session.path.join(&file).is_file() {
+        return Err(AppError::SessionNotFound(format!("{id}/{file}")));
+    }
+    open_path(&app, &session.path.join(file))
+}
+
+/// Copia o caminho da transcricao para colar na IA. Feito no Rust: o clipboard do WebView nao e confiavel.
+#[tauri::command]
+pub fn copy_transcript_path(
+    app: tauri::AppHandle,
+    settings: State<SettingsState>,
+    id: String,
+) -> AppResult<String> {
+    let session = session::get(&settings.output_dir()?, &id)?;
+    let path = session.path.join("transcricao.md").to_string_lossy().into_owned();
+    app.clipboard().write_text(path.clone()).map_err(|e| std::io::Error::other(e.to_string()))?;
+    Ok(path)
 }
 
 #[tauri::command]

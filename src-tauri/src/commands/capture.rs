@@ -187,3 +187,26 @@ pub async fn recover_interrupted(
     .await
     .map_err(|e| std::io::Error::other(e.to_string()))?
 }
+
+#[derive(Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct Levels {
+    pub microphone: f32,
+    pub system: f32,
+}
+
+/// Pico de cada fonte desde a ultima chamada; a interface consulta ~10 vezes por segundo.
+#[tauri::command]
+pub fn recording_levels(state: State<CaptureState>) -> Levels {
+    let active = state.0.lock().unwrap();
+    let mut levels = Levels::default();
+    if let Some(r) = active.as_ref() {
+        for (kind, level) in r.recorder.take_levels() {
+            match kind {
+                SourceKind::Microphone => levels.microphone = level,
+                SourceKind::System => levels.system = level,
+            }
+        }
+    }
+    levels
+}

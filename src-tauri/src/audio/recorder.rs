@@ -7,7 +7,7 @@
 
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
@@ -109,6 +109,12 @@ struct Block {
     samples: Vec<f32>,
 }
 
+/// Destino dos blocos do callback: canal da thread de escrita + medidor de nivel.
+struct Sink {
+    tx: Sender<Block>,
+    level: Arc<AtomicU32>,
+}
+
 struct Live {
     _stream: Stream,
     device_id: Option<DeviceId>,
@@ -123,6 +129,8 @@ struct Track {
     /// Marcado pelo callback de erro quando o dispositivo some ou o stream e invalidado.
     failed: Arc<AtomicBool>,
     retry_at: Option<Instant>,
+    /// Pico (0 a 1) desde a ultima leitura, em bits de f32; alimenta o medidor da interface.
+    level: Arc<AtomicU32>,
 }
 
 struct Shared {
@@ -181,6 +189,15 @@ impl Recorder {
     pub fn sources(&self) -> Vec<SourceKind> {
         let tracks = self.shared.tracks.lock().unwrap();
         tracks.iter().filter(|t| t.live.is_some()).map(|t| t.kind).collect()
+    }
+
+    /// Pico de cada faixa desde a ultima chamada (0 a 1). Faixas sem stream ficam em 0.
+    pub fn take_levels(&self) -> Vec<(SourceKind, f32)> {
+        let tracks = self.shared.tracks.lock().unwrap();
+        tracks
+            .iter()
+            .map(|t| (t.kind, f32::from_bits(t.level.swap(0, Ordering::Relaxed))))
+            .collect()
     }
 
     pub fn warnings(&self) -> Vec<String> {
@@ -275,7 +292,15 @@ fn mix_and_cleanup(dir: &Path, files: &[PathBuf]) -> Result<PathBuf, RecorderErr
 fn new_track(kind: SourceKind, dir: &Path, shared: &Arc<Shared>) -> Track {
     let (tx, rx) = mpsc::channel();
     let writer = spawn_writer(rx, dir.join(kind.temp_file()), shared.clone());
-    Track { kind, live: None, tx, writer, failed: Arc::new(AtomicBool::new(false)), retry_at: None }
+    Track {
+        kind,
+        live: None,
+        tx,
+        writer,
+        failed: Arc::new(AtomicBool::new(false)),
+        retry_at: None,
+        level: Arc::new(AtomicU32::new(0)),
+    }
 }
 
 /// Microfone escolhido (se conectado) ou o padrao; para o sistema, sempre a saida padrao,
@@ -361,22 +386,23 @@ fn open_stream(track: &Track, device: &Device, shared: &Shared) -> Result<Live, 
 
     let format = supported.sample_format();
     let config: StreamConfig = supported.into();
-    let (tx, paused, failed) = (track.tx.clone(), shared.paused.clone(), track.failed.clone());
+    let sink = Sink { tx: track.tx.clone(), level: track.level.clone() };
+    let (paused, failed) = (shared.paused.clone(), track.failed.clone());
 
     // Todos os formatos PCM: dispositivos Bluetooth e interfaces de audio variam bastante.
     let stream = match format {
-        SampleFormat::I8 => build_stream::<i8>(device, &config, tx, paused, failed),
-        SampleFormat::I16 => build_stream::<i16>(device, &config, tx, paused, failed),
-        SampleFormat::I24 => build_stream::<I24>(device, &config, tx, paused, failed),
-        SampleFormat::I32 => build_stream::<i32>(device, &config, tx, paused, failed),
-        SampleFormat::I64 => build_stream::<i64>(device, &config, tx, paused, failed),
-        SampleFormat::U8 => build_stream::<u8>(device, &config, tx, paused, failed),
-        SampleFormat::U16 => build_stream::<u16>(device, &config, tx, paused, failed),
-        SampleFormat::U24 => build_stream::<U24>(device, &config, tx, paused, failed),
-        SampleFormat::U32 => build_stream::<u32>(device, &config, tx, paused, failed),
-        SampleFormat::U64 => build_stream::<u64>(device, &config, tx, paused, failed),
-        SampleFormat::F32 => build_stream::<f32>(device, &config, tx, paused, failed),
-        SampleFormat::F64 => build_stream::<f64>(device, &config, tx, paused, failed),
+        SampleFormat::I8 => build_stream::<i8>(device, &config, sink, paused, failed),
+        SampleFormat::I16 => build_stream::<i16>(device, &config, sink, paused, failed),
+        SampleFormat::I24 => build_stream::<I24>(device, &config, sink, paused, failed),
+        SampleFormat::I32 => build_stream::<i32>(device, &config, sink, paused, failed),
+        SampleFormat::I64 => build_stream::<i64>(device, &config, sink, paused, failed),
+        SampleFormat::U8 => build_stream::<u8>(device, &config, sink, paused, failed),
+        SampleFormat::U16 => build_stream::<u16>(device, &config, sink, paused, failed),
+        SampleFormat::U24 => build_stream::<U24>(device, &config, sink, paused, failed),
+        SampleFormat::U32 => build_stream::<u32>(device, &config, sink, paused, failed),
+        SampleFormat::U64 => build_stream::<u64>(device, &config, sink, paused, failed),
+        SampleFormat::F32 => build_stream::<f32>(device, &config, sink, paused, failed),
+        SampleFormat::F64 => build_stream::<f64>(device, &config, sink, paused, failed),
         other => return Err(device_err(format!("formato de amostra nao suportado: {other}"))),
     }
     .map_err(|e| device_err(e.to_string()))?;
@@ -388,7 +414,7 @@ fn open_stream(track: &Track, device: &Device, shared: &Shared) -> Result<Live, 
 fn build_stream<T>(
     device: &Device,
     config: &StreamConfig,
-    tx: Sender<Block>,
+    sink: Sink,
     paused: Arc<AtomicBool>,
     failed: Arc<AtomicBool>,
 ) -> Result<Stream, cpal::Error>
@@ -408,8 +434,11 @@ where
                 .chunks(channels)
                 .map(|frame| frame.iter().map(|&s| f32::from_sample(s)).sum::<f32>() / channels as f32)
                 .collect();
+            let peak = samples.iter().fold(0f32, |m, s| m.max(s.abs())).min(1.0);
+            // fetch_max em bits funciona porque f32 positivos ordenam igual aos seus bits.
+            sink.level.fetch_max(peak.to_bits(), Ordering::Relaxed);
             // Erro so acontece se a thread de escrita ja terminou; nada a fazer no callback.
-            let _ = tx.send(Block { rate, samples });
+            let _ = sink.tx.send(Block { rate, samples });
         },
         move |err| match err.kind() {
             // O vigia reabre o stream no dispositivo atual.

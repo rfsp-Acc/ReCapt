@@ -72,11 +72,5 @@ export function useRecording(onStopped?: (sessionId: string) => void) {
       }
     });
 
-  const toggleScreen = () =>
-    run(async () => {
-      const screen = await api.toggleScreenCapture();
-      setStatus((s) => ({ ...s, screen }));
-    });
-
-  return { status, elapsed, saving, error, start, pause, resume, stop, toggleScreen };
+  return { status, elapsed, saving, error, start, pause, resume, stop };
 }
