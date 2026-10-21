@@ -56,8 +56,8 @@ export function useRecording(onStopped?: (sessionId: string) => void) {
     }
   }, []);
 
-  const start = (project: string, front: string) =>
-    run(async () => setStatus(await api.startRecording(project, front)));
+  const start = (project: string, front: string, theme: string, subject: string) =>
+    run(async () => setStatus(await api.startRecording(project, front, theme, subject)));
   const pause = () => run(async () => setStatus(await api.pauseRecording()));
   const resume = () => run(async () => setStatus(await api.resumeRecording()));
 

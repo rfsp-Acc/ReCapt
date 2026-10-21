@@ -15,12 +15,14 @@ export function formatSessionName(name: string): string {
   return rest ? `${dd}-${mm}-${yyyy} ${rest}` : `${dd}-${mm}-${yyyy}`;
 }
 
-/** Data e titulo de uma sessao: o titulo e o horario (15h40) ou o nome dado depois. */
-export function parseSessionName(name: string): { date: Date | null; title: string } {
+/** "2026-10-21_14h30-2 Mapeamento" -> data, horario "14h30" e assunto (o backend tambem devolve o assunto). */
+export function parseSessionName(name: string): { date: Date | null; time: string } {
   const m = FOLDER_DATE.exec(name);
-  if (!m) return { date: null, title: name };
+  if (!m) return { date: null, time: name };
   const [, yyyy, mm, dd, rest] = m;
-  return { date: new Date(Number(yyyy), Number(mm) - 1, Number(dd)), title: rest ?? "" };
+  // "14h30-2 Mapeamento" -> "14h30": o sufixo -2 so desempata pastas do mesmo minuto.
+  const time = (rest ?? "").split(" ")[0].replace(/-\d+$/, "");
+  return { date: new Date(Number(yyyy), Number(mm) - 1, Number(dd)), time };
 }
 
 /** "Hoje", "Ontem" ou DD-MM-AAAA. */

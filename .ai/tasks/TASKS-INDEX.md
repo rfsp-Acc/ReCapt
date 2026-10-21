@@ -11,3 +11,4 @@
 | TASK-07 | Robustez e dispositivos Bluetooth | Concluido | Claude |
 | TASK-08 | Versao instalavel (.app) e icone | Concluido | Claude |
 | TASK-09 | Organizacao por Projeto / Frente / Data | Concluido | Claude |
+| TASK-10 | Tema como pasta e assunto da reuniao | Concluido | Claude |

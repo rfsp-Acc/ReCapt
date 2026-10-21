@@ -5,15 +5,19 @@ const KEY = "recapt:last-target";
 export interface Target {
   project: string;
   front: string;
+  theme: string;
 }
 
-/** Ultimo projeto e frente usados: a proxima gravacao ja comeca preenchida. */
+const EMPTY: Target = { project: "", front: "", theme: "" };
+
+/** Ultimo projeto, frente e tema usados: a proxima gravacao ja comeca preenchida.
+ * O assunto nao entra: muda a cada reuniao. */
 export function useLastTarget() {
   const [target, setTarget] = useState<Target>(() => {
     try {
-      return { project: "", front: "", ...JSON.parse(localStorage.getItem(KEY) ?? "{}") };
+      return { ...EMPTY, ...JSON.parse(localStorage.getItem(KEY) ?? "{}") };
     } catch {
-      return { project: "", front: "" };
+      return EMPTY;
     }
   });
 

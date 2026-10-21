@@ -1,9 +1,12 @@
-//! Organizacao das sessoes na pasta de saida (padrao: ~/ReCapt), TASK-09:
+//! Organizacao das sessoes na pasta de saida (padrao: ~/ReCapt), TASK-09 e TASK-10:
 //!
 //! ```text
-//! <raiz>/<Projeto>/<Frente>/AAAA-MM-DD_HHhMM/   sessoes organizadas
-//! <raiz>/AAAA-MM/AAAA-MM-DD_HHhMM/               sessoes antigas, sem projeto
+//! <raiz>/<Projeto>/<Frente>/<Tema>/AAAA-MM-DD_HHhMM Assunto/   sessoes organizadas
+//! <raiz>/<Projeto>/<Frente>/AAAA-MM-DD_HHhMM/                   gravadas antes do Tema
+//! <raiz>/AAAA-MM/AAAA-MM-DD_HHhMM/                               sessoes antigas, sem projeto
 //! ```
+//!
+//! O assunto e opcional e fica no nome da pasta da reuniao, depois da data.
 //!
 //! Projetos sao pastas com o arquivo `.recapt-projeto`, para que outras pastas da raiz
 //! nao virem projetos por engano. Frentes sao criadas na primeira gravacao.
@@ -28,6 +31,10 @@ pub struct Session {
     /// `None` nas sessoes antigas, gravadas antes da TASK-09.
     pub project: Option<String>,
     pub front: Option<String>,
+    /// `None` nas sessoes gravadas antes da TASK-10, direto na frente.
+    pub theme: Option<String>,
+    /// Assunto opcional, lido do nome da pasta ("2026-10-21_14h30 Mapeamento de campos").
+    pub subject: Option<String>,
     pub has_audio: bool,
     pub has_video: bool,
     pub has_transcript: bool,
@@ -41,7 +48,23 @@ pub struct Session {
 pub struct Project {
     pub name: String,
     /// Em ordem alfabetica.
-    pub fronts: Vec<String>,
+    pub fronts: Vec<Front>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Front {
+    pub name: String,
+    /// Em ordem alfabetica.
+    pub themes: Vec<String>,
+}
+
+/// Onde a sessao esta na hierarquia; tudo `None` nas sessoes antigas por mes.
+#[derive(Default)]
+struct Place {
+    project: Option<String>,
+    front: Option<String>,
+    theme: Option<String>,
 }
 
 /// Remove o que nao pode ir em nome de pasta e normaliza espacos. Acentos ficam.
@@ -80,42 +103,74 @@ pub fn projects(root: &Path) -> AppResult<Vec<Project>> {
     }
     let mut out = Vec::new();
     for dir in subdirs(root)?.into_iter().filter(|d| is_project_dir(d)) {
-        let mut fronts: Vec<String> = subdirs(&dir)?.iter().filter_map(|d| dir_name(d)).collect();
-        fronts.sort_by_key(|f| f.to_lowercase());
+        let mut fronts = Vec::new();
+        for front in subdirs(&dir)? {
+            // Pastas de data direto na frente sao sessoes antigas, nao temas.
+            let mut themes: Vec<String> =
+                subdirs(&front)?.iter().filter(|d| !is_session_dir(d)).filter_map(|d| dir_name(d)).collect();
+            themes.sort_by_key(|t| t.to_lowercase());
+            fronts.push(Front { name: dir_name(&front).unwrap_or_default(), themes });
+        }
+        fronts.sort_by_key(|f| f.name.to_lowercase());
         out.push(Project { name: dir_name(&dir).unwrap_or_default(), fronts });
     }
     out.sort_by_key(|p| p.name.to_lowercase());
     Ok(out)
 }
 
-/// Cria a pasta da sessao: <raiz>/<projeto>/<frente>/AAAA-MM-DD_HHhMM.
-/// O projeto precisa existir; a frente e criada se for nova (reaproveitando a grafia existente).
-pub fn create(root: &Path, project: &str, front: &str, started_at: DateTime<Local>) -> AppResult<Session> {
-    let project_dir = root.join(clean_name(project)?);
+pub struct NewSession<'a> {
+    pub project: &'a str,
+    pub front: &'a str,
+    pub theme: &'a str,
+    /// Opcional; vazio fica so com data e hora.
+    pub subject: &'a str,
+}
+
+/// Cria a pasta da sessao: <raiz>/<projeto>/<frente>/<tema>/AAAA-MM-DD_HHhMM Assunto.
+/// O projeto precisa existir; frente e tema sao criados se forem novos, reaproveitando a grafia existente.
+pub fn create(root: &Path, new: &NewSession, started_at: DateTime<Local>) -> AppResult<Session> {
+    let project_dir = root.join(clean_name(new.project)?);
     if !is_project_dir(&project_dir) {
-        return Err(AppError::ProjectNotFound(project.to_string()));
+        return Err(AppError::ProjectNotFound(new.project.to_string()));
     }
-    let front = clean_name(front)?;
-    // "discovery" reaproveita a frente "Discovery" em vez de criar outra.
-    let front = subdirs(&project_dir)?
-        .iter()
-        .filter_map(|d| dir_name(d))
-        .find(|f| f.to_lowercase() == front.to_lowercase())
-        .unwrap_or(front);
+    let front = existing_or(&project_dir, clean_name(new.front)?)?;
     let front_dir = project_dir.join(&front);
+    let theme = existing_or(&front_dir, clean_name(new.theme)?)?;
+    let theme_dir = front_dir.join(&theme);
+    let subject = match new.subject.trim() {
+        "" => None,
+        raw => Some(clean_name(raw)?),
+    };
 
     let base = started_at.format("%Y-%m-%d_%Hh%M").to_string();
-    // Duas gravacoes no mesmo minuto recebem sufixo -2, -3...
-    let mut name = base.clone();
+    let with_subject = |stamp: &str| match &subject {
+        Some(s) => format!("{stamp} {s}"),
+        None => stamp.to_string(),
+    };
+    // Duas gravacoes no mesmo minuto recebem sufixo -2, -3... antes do assunto.
+    let mut name = with_subject(&base);
     let mut n = 2;
-    while front_dir.join(&name).exists() {
-        name = format!("{base}-{n}");
+    while theme_dir.join(&name).exists() {
+        name = with_subject(&format!("{base}-{n}"));
         n += 1;
     }
 
-    let path = front_dir.join(&name);
+    let path = theme_dir.join(&name);
     fs::create_dir_all(&path)?;
-    Ok(read(root, &path, Some((project_dir.as_path(), &front))))
+    let place = Place { project: dir_name(&project_dir), front: Some(front), theme: Some(theme) };
+    Ok(read(root, &path, place))
+}
+
+/// "discovery" reaproveita a pasta "Discovery" em vez de criar outra.
+fn existing_or(parent: &Path, name: String) -> AppResult<String> {
+    if !parent.exists() {
+        return Ok(name);
+    }
+    Ok(subdirs(parent)?
+        .iter()
+        .filter_map(|d| dir_name(d))
+        .find(|f| f.to_lowercase() == name.to_lowercase())
+        .unwrap_or(name))
 }
 
 pub fn list(root: &Path) -> AppResult<Vec<Session>> {
@@ -127,14 +182,21 @@ pub fn list(root: &Path) -> AppResult<Vec<Session>> {
     for dir in subdirs(root)? {
         if is_project_dir(&dir) {
             for front in subdirs(&dir)? {
-                let front_name = dir_name(&front).unwrap_or_default();
-                for session in subdirs(&front)?.into_iter().filter(|d| is_session_dir(d)) {
-                    sessions.push(read(root, &session, Some((dir.as_path(), &front_name))));
+                for child in subdirs(&front)? {
+                    let place = |theme: Option<String>| Place { project: dir_name(&dir), front: dir_name(&front), theme };
+                    if is_session_dir(&child) {
+                        // Gravada antes da TASK-10, direto na frente.
+                        sessions.push(read(root, &child, place(None)));
+                    } else {
+                        for session in subdirs(&child)?.into_iter().filter(|d| is_session_dir(d)) {
+                            sessions.push(read(root, &session, place(dir_name(&child))));
+                        }
+                    }
                 }
             }
         } else if is_month_dir(&dir) {
             for session in subdirs(&dir)?.into_iter().filter(|d| is_session_dir(d)) {
-                sessions.push(read(root, &session, None));
+                sessions.push(read(root, &session, Place::default()));
             }
         }
         // Outras pastas da raiz sao ignoradas.
@@ -151,11 +213,17 @@ pub fn get(root: &Path, id: &str) -> AppResult<Session> {
         return Err(AppError::SessionNotFound(id.to_string()));
     }
     let parts: Vec<&str> = id.split('/').collect();
-    let context = match parts.as_slice() {
-        [project, front, _] if is_project_dir(&root.join(project)) => Some((root.join(project), front.to_string())),
-        _ => None,
+    let owned = |s: &&str| Some(s.to_string());
+    let place = match parts.as_slice() {
+        [project, front, theme, _] if is_project_dir(&root.join(project)) => {
+            Place { project: owned(project), front: owned(front), theme: owned(theme) }
+        }
+        [project, front, _] if is_project_dir(&root.join(project)) => {
+            Place { project: owned(project), front: owned(front), theme: None }
+        }
+        _ => Place::default(),
     };
-    Ok(read(root, &path, context.as_ref().map(|(p, f)| (p.as_path(), f.as_str()))))
+    Ok(read(root, &path, place))
 }
 
 /// So le o cabecalho: barato mesmo para gravacoes longas.
@@ -185,6 +253,16 @@ fn is_session_dir(dir: &Path) -> bool {
         && b[..4].iter().chain(&b[5..7]).chain(&b[8..10]).all(u8::is_ascii_digit)
 }
 
+/// "2026-10-21_14h30-2 Mapeamento de campos" -> "Mapeamento de campos".
+pub fn subject_of(folder: &str) -> Option<String> {
+    folder.split_once(' ').map(|(_, s)| s.trim().to_string()).filter(|s| !s.is_empty())
+}
+
+/// "2026-10-21_14h30 Mapeamento de campos" -> "2026-10-21_14h30".
+pub fn stamp_of(folder: &str) -> &str {
+    folder.split_once(' ').map_or(folder, |(stamp, _)| stamp)
+}
+
 fn dir_name(dir: &Path) -> Option<String> {
     dir.file_name().map(|n| n.to_string_lossy().into_owned())
 }
@@ -202,19 +280,22 @@ fn subdirs(dir: &Path) -> AppResult<Vec<PathBuf>> {
     Ok(out)
 }
 
-fn read(root: &Path, path: &Path, context: Option<(&Path, &str)>) -> Session {
+fn read(root: &Path, path: &Path, place: Place) -> Session {
     let id = path
         .strip_prefix(root)
         .unwrap_or(path)
         .to_string_lossy()
         .replace('\\', "/");
 
+    let name = dir_name(path).unwrap_or_default();
     Session {
         id,
-        name: dir_name(path).unwrap_or_default(),
+        subject: subject_of(&name),
+        name,
         path: path.to_path_buf(),
-        project: context.and_then(|(p, _)| dir_name(p)),
-        front: context.map(|(_, f)| f.to_string()),
+        project: place.project,
+        front: place.front,
+        theme: place.theme,
         has_audio: path.join("audio.wav").exists() || path.join("audio.mp3").exists(),
         has_video: path.join("gravacao.mp4").exists(),
         has_transcript: path.join("transcricao.md").exists(),
@@ -253,23 +334,31 @@ mod tests {
         create_project(&root, "Cliente X").unwrap();
         assert!(matches!(create_project(&root, "cliente x"), Err(AppError::ProjectExists(_))));
 
-        let s = create(&root, "Cliente X", "Discovery", at(10, 27)).unwrap();
-        assert_eq!(s.id, "Cliente X/Discovery/2026-10-21_10h27");
-        assert_eq!(s.project.as_deref(), Some("Cliente X"));
-        assert_eq!(s.front.as_deref(), Some("Discovery"));
+        let new = |front, theme, subject| NewSession { project: "Cliente X", front, theme, subject };
 
-        // Mesma frente com outra grafia e mesmo minuto: reaproveita a pasta e recebe sufixo.
-        let s2 = create(&root, "Cliente X", "discovery", at(10, 27)).unwrap();
-        assert_eq!(s2.id, "Cliente X/Discovery/2026-10-21_10h27-2");
+        let s = create(&root, &new("Discovery", "Integração com SAP", "Mapeamento de campos"), at(10, 27)).unwrap();
+        assert_eq!(s.id, "Cliente X/Discovery/Integração com SAP/2026-10-21_10h27 Mapeamento de campos");
+        assert_eq!(s.theme.as_deref(), Some("Integração com SAP"));
+        assert_eq!(s.subject.as_deref(), Some("Mapeamento de campos"));
 
-        assert!(matches!(create(&root, "Nao existe", "F", at(9, 0)), Err(AppError::ProjectNotFound(_))));
+        // Mesma frente e tema com outra grafia, mesmo minuto, sem assunto: reaproveita as pastas.
+        let s2 = create(&root, &new("discovery", "integração com sap", ""), at(10, 27)).unwrap();
+        assert_eq!(s2.id, "Cliente X/Discovery/Integração com SAP/2026-10-21_10h27");
+        assert_eq!(s2.subject, None);
+        let s3 = create(&root, &new("Discovery", "Integração com SAP", ""), at(10, 27)).unwrap();
+        assert_eq!(s3.id, "Cliente X/Discovery/Integração com SAP/2026-10-21_10h27-2");
+
+        let other = NewSession { project: "Nao existe", front: "F", theme: "T", subject: "" };
+        assert!(matches!(create(&root, &other, at(9, 0)), Err(AppError::ProjectNotFound(_))));
 
         let projects = projects(&root).unwrap();
-        assert_eq!(projects.len(), 1);
-        assert_eq!(projects[0].fronts, ["Discovery"]);
+        assert_eq!(projects[0].fronts.len(), 1);
+        assert_eq!(projects[0].fronts[0].name, "Discovery");
+        assert_eq!(projects[0].fronts[0].themes, ["Integração com SAP"]);
 
         let got = get(&root, &s.id).unwrap();
-        assert_eq!(got.front.as_deref(), Some("Discovery"));
+        assert_eq!(got.theme.as_deref(), Some("Integração com SAP"));
+        assert_eq!(got.subject.as_deref(), Some("Mapeamento de campos"));
         fs::remove_dir_all(&root).unwrap();
     }
 
@@ -277,19 +366,32 @@ mod tests {
     fn lists_projects_and_legacy_sessions_ignoring_other_folders() {
         let root = temp_root("list");
         create_project(&root, "Cliente X").unwrap();
-        create(&root, "Cliente X", "Discovery", at(10, 27)).unwrap();
+        let new = NewSession { project: "Cliente X", front: "Discovery", theme: "SAP", subject: "" };
+        create(&root, &new, at(10, 27)).unwrap();
+        // Gravada antes da TASK-10, direto na frente.
+        fs::create_dir_all(root.join("Cliente X/Discovery/2026-10-20_09h00")).unwrap();
         fs::create_dir_all(root.join("2026-09/2026-09-30_09h00")).unwrap();
         fs::create_dir_all(root.join("Pasta qualquer/sub/2026-10-01_10h00")).unwrap();
 
-        let ids: Vec<_> = list(&root).unwrap().into_iter().map(|s| (s.id, s.project)).collect();
+        let ids: Vec<_> = list(&root).unwrap().into_iter().map(|s| (s.id, s.theme)).collect();
         assert_eq!(
             ids,
             [
-                ("Cliente X/Discovery/2026-10-21_10h27".to_string(), Some("Cliente X".to_string())),
+                ("Cliente X/Discovery/SAP/2026-10-21_10h27".to_string(), Some("SAP".to_string())),
+                ("Cliente X/Discovery/2026-10-20_09h00".to_string(), None),
                 ("2026-09/2026-09-30_09h00".to_string(), None),
             ]
         );
+        // A sessao antiga direto na frente nao vira tema.
+        assert_eq!(projects(&root).unwrap()[0].fronts[0].themes, ["SAP"]);
         fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn splits_stamp_and_subject() {
+        assert_eq!(subject_of("2026-10-21_14h30-2 Mapeamento de campos").as_deref(), Some("Mapeamento de campos"));
+        assert_eq!(subject_of("2026-10-21_14h30"), None);
+        assert_eq!(stamp_of("2026-10-21_14h30 Mapeamento"), "2026-10-21_14h30");
     }
 
     #[test]

@@ -61,8 +61,15 @@ pub async fn transcribe(
     state.0.lock().unwrap().remove(&id);
 
     let result = result.map_err(|e| std::io::Error::other(e.to_string()))??;
-    let context = transcript::Context { project: session.project.as_deref(), front: session.front.as_deref() };
-    let md = transcript::to_markdown(&transcript::display_name(&session.name), &context, &result);
+    let context = transcript::Context {
+        project: session.project.as_deref(),
+        front: session.front.as_deref(),
+        theme: session.theme.as_deref(),
+        subject: session.subject.as_deref(),
+    };
+    // O titulo usa so data e hora; o assunto ja entra pelo contexto.
+    let title = transcript::display_name(session::stamp_of(&session.name));
+    let md = transcript::to_markdown(&title, &context, &result);
     fs::write(session.path.join("transcricao.md"), md)?;
 
     session::get(&root, &id)

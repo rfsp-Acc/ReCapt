@@ -17,6 +17,8 @@ interface Props {
   projects: Project[];
   target: Target;
   onTarget: (t: Partial<Target>) => void;
+  subject: string;
+  onSubject: (subject: string) => void;
   onAddProject: () => void;
   onStart: () => void;
   onStop: () => void;
@@ -38,7 +40,8 @@ export function CaptureCard(p: Props) {
   const micName =
     p.mics.find((d) => d.id === p.selectedMic)?.name ?? p.mics.find((d) => d.isDefault)?.name ?? "Microfone";
   const project = p.projects.find((x) => x.name === p.target.project);
-  const ready = project !== undefined && p.target.front.trim() !== "";
+  const front = project?.fronts.find((f) => f.name.toLowerCase() === p.target.front.trim().toLowerCase());
+  const ready = project !== undefined && p.target.front.trim() !== "" && p.target.theme.trim() !== "";
   // Ultimo aviso de dispositivo: os anteriores ja foram resolvidos ou substituidos.
   const lastWarning = p.status.warnings[p.status.warnings.length - 1];
 
@@ -67,7 +70,7 @@ export function CaptureCard(p: Props) {
                 ? "Grava o microfone e o áudio do computador. A transcrição começa ao parar."
                 : p.projects.length === 0
                   ? "Crie um projeto para começar a gravar."
-                  : "Escolha o projeto e informe a frente ou o tema da reunião.")}
+                  : "Escolha o projeto e informe a frente e o tema da reunião.")}
             {state === "recording" && "Clique no botão vermelho para parar e transcrever."}
             {state === "paused" && "O trecho pausado não entra na gravação."}
             {state === "saving" && "Juntando as faixas de áudio."}
@@ -108,20 +111,48 @@ export function CaptureCard(p: Props) {
             </div>
           </label>
           <label className="field">
-            <span className="field-label">Frente ou tema da reunião</span>
+            <span className="field-label">Frente</span>
             <input
               className="text-input"
               list="fronts"
               value={p.target.front}
               onChange={(e) => p.onTarget({ front: e.target.value })}
-              placeholder={project?.fronts[0] ? `Ex.: ${project.fronts[0]}` : "Ex.: Discovery, Status semanal"}
+              placeholder={project?.fronts[0] ? `Ex.: ${project.fronts[0].name}` : "Ex.: Discovery"}
               maxLength={80}
               disabled={!project || p.saving}
             />
-            {/* Sugere as frentes que ja existem no projeto. */}
+            {/* Sugere o que ja existe no projeto. */}
             <datalist id="fronts">
-              {project?.fronts.map((f) => <option key={f} value={f} />)}
+              {project?.fronts.map((f) => <option key={f.name} value={f.name} />)}
             </datalist>
+          </label>
+          <label className="field">
+            <span className="field-label">Tema</span>
+            <input
+              className="text-input"
+              list="themes"
+              value={p.target.theme}
+              onChange={(e) => p.onTarget({ theme: e.target.value })}
+              placeholder={front?.themes[0] ? `Ex.: ${front.themes[0]}` : "Ex.: Integração com SAP"}
+              maxLength={80}
+              disabled={!project || p.saving}
+            />
+            <datalist id="themes">
+              {front?.themes.map((t) => <option key={t} value={t} />)}
+            </datalist>
+          </label>
+          <label className="field">
+            <span className="field-label">
+              Assunto <span className="field-optional">(opcional)</span>
+            </span>
+            <input
+              className="text-input"
+              value={p.subject}
+              onChange={(e) => p.onSubject(e.target.value)}
+              placeholder="Ex.: Mapeamento de campos"
+              maxLength={80}
+              disabled={!project || p.saving}
+            />
           </label>
         </div>
       )}

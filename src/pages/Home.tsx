@@ -39,6 +39,7 @@ export function Home() {
   const language = useTranscriptionLanguage();
   const mics = useInputDevices();
   const [target, setTarget] = useLastTarget();
+  const [subject, setSubject] = useState("");
   const [selection, setSelection] = useState<Selection>({ kind: "all" });
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [addProjectOpen, setAddProjectOpen] = useState(false);
@@ -74,13 +75,15 @@ export function Home() {
   const select = (sel: Selection) => {
     setSelection(sel);
     if (rec.status.recording) return;
-    if (sel.kind === "project" && sel.project !== target.project) setTarget({ project: sel.project, front: "" });
-    if (sel.kind === "front") setTarget({ project: sel.project, front: sel.front });
+    if (sel.kind === "project" && sel.project !== target.project) setTarget({ project: sel.project, front: "", theme: "" });
+    if (sel.kind === "front" && (sel.project !== target.project || sel.front !== target.front))
+      setTarget({ project: sel.project, front: sel.front, theme: "" });
+    if (sel.kind === "theme" && sel.theme) setTarget({ project: sel.project, front: sel.front, theme: sel.theme });
   };
 
   const createProject = async (name: string) => {
     const project = await projects.create(name);
-    setTarget({ project: project.name, front: "" });
+    setTarget({ project: project.name, front: "", theme: "" });
     setSelection({ kind: "project", project: project.name });
     notices.push("success", `Projeto "${project.name}" criado.`);
   };
@@ -93,7 +96,9 @@ export function Home() {
         ? "Sem projeto"
         : selection.kind === "project"
           ? selection.project
-          : `${selection.project} / ${selection.front}`;
+          : selection.kind === "front"
+            ? `${selection.project} / ${selection.front}`
+            : `${selection.project} / ${selection.front} / ${selection.theme ?? "Sem tema"}`;
 
   return (
     <div className="app">
@@ -130,7 +135,13 @@ export function Home() {
             target={target}
             onTarget={setTarget}
             onAddProject={() => setAddProjectOpen(true)}
-            onStart={() => rec.start(target.project, target.front)}
+            subject={subject}
+            onSubject={setSubject}
+            onStart={() => {
+              rec.start(target.project, target.front, target.theme, subject);
+              // O assunto vale so para esta reuniao.
+              setSubject("");
+            }}
             onStop={rec.stop}
             onPause={rec.pause}
             onResume={rec.resume}
@@ -144,7 +155,13 @@ export function Home() {
               onTranscribe={transcription.transcribe}
               onCopied={(text) => notices.push("success", text)}
               onError={(text) => notices.push("error", text)}
-              context={selection.kind === "all" ? "full" : selection.kind === "project" ? "front" : "none"}
+              context={
+                { all: "full", none: "none", project: "front", front: "theme", theme: "none" }[selection.kind] as
+                  | "full"
+                  | "front"
+                  | "theme"
+                  | "none"
+              }
               emptyText={
                 selection.kind === "all"
                   ? "Escolha o projeto, informe a frente e clique no botão vermelho para gravar sua primeira reunião."

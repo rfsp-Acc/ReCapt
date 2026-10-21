@@ -3,10 +3,12 @@
 use super::engine::Transcript;
 use super::language;
 
-/// Projeto e frente da sessao, quando houver: dao contexto para a IA na analise.
+/// Lugar da sessao na hierarquia, quando houver: da contexto para a IA na analise.
 pub struct Context<'a> {
     pub project: Option<&'a str>,
     pub front: Option<&'a str>,
+    pub theme: Option<&'a str>,
+    pub subject: Option<&'a str>,
 }
 
 /// `title` ja vem formatado para exibicao (data em DD-MM-AAAA).
@@ -14,13 +16,18 @@ pub fn to_markdown(title: &str, context: &Context, transcript: &Transcript) -> S
     let segments = &transcript.segments;
     let duration = segments.last().map(|s| s.end_ms).unwrap_or(0);
     let origin = if transcript.detected { "detectado automaticamente" } else { "escolhido nas configurações" };
-    let heading = match context.front {
-        Some(front) => format!("{front}, {title}"),
+    // O nome mais especifico disponivel: assunto, tema ou frente.
+    let heading = match context.subject.or(context.theme).or(context.front) {
+        Some(name) => format!("{name}, {title}"),
         None => title.to_string(),
     };
     let mut md = format!("# Transcrição: {heading}\n\n");
-    if let (Some(project), Some(front)) = (context.project, context.front) {
-        md.push_str(&format!("Projeto: {project} | Frente: {front}\n\n"));
+    let place: Vec<String> = [("Projeto", context.project), ("Frente", context.front), ("Tema", context.theme)]
+        .iter()
+        .filter_map(|(label, value)| value.map(|v| format!("{label}: {v}")))
+        .collect();
+    if !place.is_empty() {
+        md.push_str(&format!("{}\n\n", place.join(" | ")));
     }
     md.push_str(&format!(
         "Duração: {} | Idioma: {} ({origin})\n\n",
@@ -84,10 +91,15 @@ mod tests {
             language: "en".into(),
             detected: true,
         };
-        let ctx = Context { project: Some("Cliente X"), front: Some("Discovery") };
+        let ctx = Context {
+            project: Some("Cliente X"),
+            front: Some("Discovery"),
+            theme: Some("Integração com SAP"),
+            subject: Some("Mapeamento de campos"),
+        };
         let md = to_markdown("20-10-2026 15h40", &ctx, &transcript);
-        assert!(md.starts_with("# Transcrição: Discovery, 20-10-2026 15h40\n"));
-        assert!(md.contains("Projeto: Cliente X | Frente: Discovery"));
+        assert!(md.starts_with("# Transcrição: Mapeamento de campos, 20-10-2026 15h40\n"));
+        assert!(md.contains("Projeto: Cliente X | Frente: Discovery | Tema: Integração com SAP"));
         assert!(md.contains("Duração: 01:02:10 | Idioma: inglês (detectado automaticamente)"));
         assert!(md.contains("**[00:00:00]** Bom dia."));
         assert!(md.contains("**[01:02:05]** Encerrando."));
@@ -96,7 +108,8 @@ mod tests {
     #[test]
     fn empty_transcript_says_so() {
         let empty = Transcript { segments: vec![], language: "pt".into(), detected: false };
-        let md = to_markdown("x", &Context { project: None, front: None }, &empty);
+        let none = Context { project: None, front: None, theme: None, subject: None };
+        let md = to_markdown("x", &none, &empty);
         assert!(md.starts_with("# Transcrição: x\n\nDuração"));
         assert!(md.contains("Nenhuma fala reconhecida"));
         assert!(md.contains("Idioma: português (escolhido nas configurações)"));

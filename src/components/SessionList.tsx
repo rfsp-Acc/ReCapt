@@ -10,8 +10,8 @@ interface Props {
   onTranscribe: (id: string) => void;
   onCopied: (text: string) => void;
   onError: (text: string) => void;
-  /** Quanto do caminho mostrar em cada sessao: tudo, so a frente ou nada (ja esta no titulo). */
-  context: "full" | "front" | "none";
+  /** Quanto do caminho mostrar em cada sessao; o que ja esta no titulo da tela fica de fora. */
+  context: "full" | "front" | "theme" | "none";
   emptyText: string;
 }
 
@@ -68,7 +68,13 @@ interface RowProps {
 }
 
 function SessionRow({ session: s, percent, onTranscribe, onCopied, onError, context }: RowProps) {
-  const { title } = parseSessionName(s.name);
+  const { time } = parseSessionName(s.name);
+  const place = {
+    full: [s.project, s.front, s.theme],
+    front: [s.front, s.theme],
+    theme: [s.theme],
+    none: [],
+  }[context].filter(Boolean);
   const transcribing = percent !== undefined;
   const fail = (e: unknown) => onError(String(e));
 
@@ -85,12 +91,9 @@ function SessionRow({ session: s, percent, onTranscribe, onCopied, onError, cont
     <li className="session-row">
       <div className="session-text">
         <span className="session-title">
-          {title || s.name}
-          {context !== "none" && s.front && (
-            <span className="session-context">
-              {context === "full" && s.project ? `${s.project} / ${s.front}` : s.front}
-            </span>
-          )}
+          <span className="session-time">{time || s.name}</span>
+          {s.subject ? <span>{s.subject}</span> : <span className="session-no-subject">sem assunto</span>}
+          {place.length > 0 && <span className="session-context">{place.join(" / ")}</span>}
         </span>
         <span className="session-meta">
           {s.durationMs !== null ? formatDuration(s.durationMs) : "sem áudio"}

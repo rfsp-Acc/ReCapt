@@ -8,7 +8,7 @@ A transcrição está no arquivo `transcricao.md` da pasta da sessão ou entre a
 
 Características da transcrição:
 
-- O cabeçalho pode trazer o projeto e a frente da reunião (`Projeto: ... | Frente: ...`). Use essas informações como contexto e no título do documento.
+- O cabeçalho pode trazer o projeto, a frente e o tema da reunião (`Projeto: ... | Frente: ... | Tema: ...`), e o título pode trazer o assunto. Use essas informações como contexto e no título do documento.
 - Cada fala começa com o horário no formato `**[HH:MM:SS]**`.
 - Não há identificação de quem fala; o áudio mistura o microfone do usuário com o som do computador.
 - Pode haver erros de reconhecimento em nomes, siglas e termos técnicos.

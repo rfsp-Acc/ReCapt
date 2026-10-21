@@ -9,6 +9,10 @@ export interface Session {
   /** `null` nas sessoes antigas, sem projeto. */
   project: string | null;
   front: string | null;
+  /** `null` nas sessoes gravadas direto na frente, antes do nivel Tema. */
+  theme: string | null;
+  /** Assunto opcional da reuniao, parte do nome da pasta. */
+  subject: string | null;
   hasAudio: boolean;
   hasVideo: boolean;
   hasTranscript: boolean;
@@ -17,9 +21,14 @@ export interface Session {
   durationMs: number | null;
 }
 
+export interface Front {
+  name: string;
+  themes: string[];
+}
+
 export interface Project {
   name: string;
-  fronts: string[];
+  fronts: Front[];
 }
 
 export interface Levels {
@@ -68,8 +77,8 @@ export interface OutputDir {
 }
 
 export const api = {
-  startRecording: (project: string, front: string) =>
-    invoke<RecordingStatus>("start_recording", { project, front }),
+  startRecording: (project: string, front: string, theme: string, subject: string) =>
+    invoke<RecordingStatus>("start_recording", { project, front, theme, subject }),
   pauseRecording: () => invoke<RecordingStatus>("pause_recording"),
   resumeRecording: () => invoke<RecordingStatus>("resume_recording"),
   stopRecording: () => invoke<string>("stop_recording"),
