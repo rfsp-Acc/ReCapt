@@ -1,0 +1,72 @@
+//! Gera o transcricao.md da sessao.
+
+use super::engine::Segment;
+
+/// `title` ja vem formatado para exibicao (data em DD-MM-AAAA).
+pub fn to_markdown(title: &str, segments: &[Segment]) -> String {
+    let duration = segments.last().map(|s| s.end_ms).unwrap_or(0);
+    let mut md = format!("# Transcrição: {title}\n\nDuração: {}\n\n", timestamp(duration));
+
+    if segments.is_empty() {
+        md.push_str("_Nenhuma fala reconhecida._\n");
+        return md;
+    }
+    for s in segments {
+        md.push_str(&format!("**[{}]** {}\n\n", timestamp(s.start_ms), s.text));
+    }
+    md
+}
+
+/// Nome da pasta "AAAA-MM-DD_resto" para exibicao "DD-MM-AAAA resto",
+/// mesma regra de src/lib/format.ts.
+pub fn display_name(folder: &str) -> String {
+    let bytes = folder.as_bytes();
+    let is_date = folder.len() >= 10
+        && bytes[4] == b'-'
+        && bytes[7] == b'-'
+        && folder[..4].bytes().chain(folder[5..7].bytes()).chain(folder[8..10].bytes()).all(|b| b.is_ascii_digit());
+    if !is_date {
+        return folder.to_string();
+    }
+    let date = format!("{}-{}-{}", &folder[8..10], &folder[5..7], &folder[..4]);
+    match folder[10..].strip_prefix('_') {
+        Some(rest) if !rest.is_empty() => format!("{date} {rest}"),
+        _ => date,
+    }
+}
+
+fn timestamp(ms: i64) -> String {
+    let total = ms.max(0) / 1000;
+    format!("{:02}:{:02}:{:02}", total / 3600, (total % 3600) / 60, total % 60)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn display_name_matches_frontend_rule() {
+        assert_eq!(display_name("2026-10-20_15h40"), "20-10-2026 15h40");
+        assert_eq!(display_name("2026-09-21_alinhamento-produto"), "21-09-2026 alinhamento-produto");
+        assert_eq!(display_name("2026-10-20"), "20-10-2026");
+        assert_eq!(display_name("reuniao"), "reuniao");
+    }
+
+    #[test]
+    fn markdown_lists_segments_with_timestamps() {
+        let segments = vec![
+            Segment { start_ms: 0, end_ms: 4_000, text: "Bom dia.".into() },
+            Segment { start_ms: 3_725_000, end_ms: 3_730_500, text: "Encerrando.".into() },
+        ];
+        let md = to_markdown("20-10-2026 15h40", &segments);
+        assert!(md.starts_with("# Transcrição: 20-10-2026 15h40\n"));
+        assert!(md.contains("Duração: 01:02:10"));
+        assert!(md.contains("**[00:00:00]** Bom dia."));
+        assert!(md.contains("**[01:02:05]** Encerrando."));
+    }
+
+    #[test]
+    fn empty_transcript_says_so() {
+        assert!(to_markdown("x", &[]).contains("Nenhuma fala reconhecida"));
+    }
+}
