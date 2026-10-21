@@ -22,6 +22,21 @@ export function useRecording(onStopped?: (sessionId: string) => void) {
     api.recordingStatus().then(setStatus).catch((e) => setError(String(e)));
   }, []);
 
+  // Durante a gravacao, busca o estado periodicamente: trocas de dispositivo geram avisos.
+  useEffect(() => {
+    if (!status.recording) return;
+    const id = setInterval(() => {
+      api.recordingStatus().then((next) => {
+        setStatus((prev) =>
+          prev.warnings.length !== next.warnings.length || prev.sources.length !== next.sources.length
+            ? next
+            : prev,
+        );
+      });
+    }, 2000);
+    return () => clearInterval(id);
+  }, [status.recording]);
+
   // O backend informa o tempo gravado; a interface so continua contando enquanto nao esta pausada.
   useEffect(() => {
     const base = Math.floor(status.elapsedMs / 1000);

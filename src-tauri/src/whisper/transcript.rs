@@ -1,11 +1,18 @@
 //! Gera o transcricao.md da sessao.
 
-use super::engine::Segment;
+use super::engine::Transcript;
+use super::language;
 
 /// `title` ja vem formatado para exibicao (data em DD-MM-AAAA).
-pub fn to_markdown(title: &str, segments: &[Segment]) -> String {
+pub fn to_markdown(title: &str, transcript: &Transcript) -> String {
+    let segments = &transcript.segments;
     let duration = segments.last().map(|s| s.end_ms).unwrap_or(0);
-    let mut md = format!("# Transcrição: {title}\n\nDuração: {}\n\n", timestamp(duration));
+    let origin = if transcript.detected { "detectado automaticamente" } else { "escolhido nas configurações" };
+    let mut md = format!(
+        "# Transcrição: {title}\n\nDuração: {} | Idioma: {} ({origin})\n\n",
+        timestamp(duration),
+        language::display_name(&transcript.language),
+    );
 
     if segments.is_empty() {
         md.push_str("_Nenhuma fala reconhecida._\n");
@@ -43,6 +50,7 @@ fn timestamp(ms: i64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::whisper::engine::Segment;
 
     #[test]
     fn display_name_matches_frontend_rule() {
@@ -54,19 +62,26 @@ mod tests {
 
     #[test]
     fn markdown_lists_segments_with_timestamps() {
-        let segments = vec![
-            Segment { start_ms: 0, end_ms: 4_000, text: "Bom dia.".into() },
-            Segment { start_ms: 3_725_000, end_ms: 3_730_500, text: "Encerrando.".into() },
-        ];
-        let md = to_markdown("20-10-2026 15h40", &segments);
+        let transcript = Transcript {
+            segments: vec![
+                Segment { start_ms: 0, end_ms: 4_000, text: "Bom dia.".into() },
+                Segment { start_ms: 3_725_000, end_ms: 3_730_500, text: "Encerrando.".into() },
+            ],
+            language: "en".into(),
+            detected: true,
+        };
+        let md = to_markdown("20-10-2026 15h40", &transcript);
         assert!(md.starts_with("# Transcrição: 20-10-2026 15h40\n"));
-        assert!(md.contains("Duração: 01:02:10"));
+        assert!(md.contains("Duração: 01:02:10 | Idioma: inglês (detectado automaticamente)"));
         assert!(md.contains("**[00:00:00]** Bom dia."));
         assert!(md.contains("**[01:02:05]** Encerrando."));
     }
 
     #[test]
     fn empty_transcript_says_so() {
-        assert!(to_markdown("x", &[]).contains("Nenhuma fala reconhecida"));
+        let empty = Transcript { segments: vec![], language: "pt".into(), detected: false };
+        let md = to_markdown("x", &empty);
+        assert!(md.contains("Nenhuma fala reconhecida"));
+        assert!(md.contains("Idioma: português (escolhido nas configurações)"));
     }
 }

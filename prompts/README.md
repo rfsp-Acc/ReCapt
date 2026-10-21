@@ -41,4 +41,3 @@ Para cada sessão de 2026-10 que tenha transcricao.md e ainda não tenha analise
 - Use o modelo mais capaz disponível. Profundidade de análise depende muito do modelo.
 - Reuniões longas (acima de 1 hora) cabem no contexto do Claude, mas a tradução pode precisar ser feita em partes.
 - Se a análise vier rasa em algum tema, peça: "Aprofunde o tema N seguindo a mesma estrutura".
-- Antes de enviar transcrições com informações de clientes para uma IA na nuvem, confirme se a ferramenta é aprovada pela política da sua empresa.

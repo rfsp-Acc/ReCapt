@@ -2,6 +2,7 @@ use std::path::Path;
 
 use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters};
 
+use super::language::Language;
 use crate::audio::SAMPLE_RATE;
 
 #[derive(Debug, thiserror::Error)]
@@ -16,6 +17,14 @@ pub enum TranscribeError {
     Whisper(#[from] whisper_rs::WhisperError),
 }
 
+pub struct Transcript {
+    pub segments: Vec<Segment>,
+    /// Codigo do idioma usado, ex.: "en".
+    pub language: String,
+    /// `true` quando o idioma veio da deteccao automatica.
+    pub detected: bool,
+}
+
 #[derive(Debug, Clone)]
 pub struct Segment {
     pub start_ms: i64,
@@ -27,8 +36,9 @@ pub struct Segment {
 pub fn transcribe(
     model: &Path,
     audio: &Path,
+    language: Language,
     on_progress: impl FnMut(i32) + 'static,
-) -> Result<Vec<Segment>, TranscribeError> {
+) -> Result<Transcript, TranscribeError> {
     let samples = read_samples(audio)?;
     if samples.is_empty() {
         return Err(TranscribeError::EmptyAudio);
@@ -41,8 +51,8 @@ pub fn transcribe(
     let mut state = ctx.create_state()?;
 
     let mut params = FullParams::new(SamplingStrategy::BeamSearch { beam_size: 5, patience: -1.0 });
-    // Deteccao automatica: o idioma das reunioes ainda e pergunta em aberto (visao-produto.md).
-    params.set_language(Some("auto"));
+    // Nao usar set_detect_language(true): no whisper.cpp ele so detecta e nao transcreve.
+    params.set_language(Some(language.whisper_code()));
     params.set_n_threads(threads());
     // Cada janela de 30 s e decodificada sem o texto anterior: evita loops de repeticao.
     params.set_no_context(true);
@@ -69,7 +79,15 @@ pub fn transcribe(
             text,
         });
     }
-    Ok(segments)
+
+    let detected = language == Language::Auto;
+    let language = match language {
+        Language::Auto => whisper_rs::get_lang_str(state.full_lang_id_from_state())
+            .unwrap_or("desconhecido")
+            .to_string(),
+        chosen => chosen.whisper_code().to_string(),
+    };
+    Ok(Transcript { segments, language, detected })
 }
 
 fn read_samples(path: &Path) -> Result<Vec<f32>, TranscribeError> {
@@ -100,7 +118,9 @@ mod tests {
         let model = std::env::var("RECAPT_MODEL").expect("defina RECAPT_MODEL");
         let audio = std::env::var("RECAPT_AUDIO").expect("defina RECAPT_AUDIO");
         let start = std::time::Instant::now();
-        let segments = super::transcribe(model.as_ref(), audio.as_ref(), |_| {}).unwrap();
+        let t = super::transcribe(model.as_ref(), audio.as_ref(), super::Language::Auto, |_| {}).unwrap();
+        println!("idioma: {} (detectado: {})", t.language, t.detected);
+        let segments = t.segments;
         for s in &segments {
             println!("[{} - {}] {}", s.start_ms, s.end_ms, s.text);
         }

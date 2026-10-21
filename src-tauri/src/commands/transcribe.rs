@@ -8,6 +8,7 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use crate::error::{AppError, AppResult};
 use crate::session::{self, Session};
 use crate::settings::SettingsState;
+use crate::whisper::language::Language;
 use crate::whisper::{engine, models, transcript};
 
 /// Sessoes sendo transcritas agora; evita rodar duas vezes a mesma.
@@ -31,6 +32,7 @@ pub async fn transcribe(
 ) -> AppResult<Session> {
     // A sessao fica na pasta escolhida no inicio, mesmo que ela mude durante a transcricao.
     let root = settings.output_dir()?;
+    let language = settings.transcription_language();
     let session = session::get(&root, &id)?;
     let audio = session.path.join("audio.wav");
     if !audio.is_file() {
@@ -48,7 +50,7 @@ pub async fn transcribe(
     let emitter = app.clone();
     let progress_id = id.clone();
     let result = tauri::async_runtime::spawn_blocking(move || {
-        engine::transcribe(&model, &audio, move |percent| {
+        engine::transcribe(&model, &audio, language, move |percent| {
             let _ = emitter.emit(
                 "transcription-progress",
                 Progress { session_id: progress_id.clone(), percent },
@@ -58,9 +60,23 @@ pub async fn transcribe(
     .await;
     state.0.lock().unwrap().remove(&id);
 
-    let segments = result.map_err(|e| std::io::Error::other(e.to_string()))??;
-    let md = transcript::to_markdown(&transcript::display_name(&session.name), &segments);
+    let result = result.map_err(|e| std::io::Error::other(e.to_string()))??;
+    let md = transcript::to_markdown(&transcript::display_name(&session.name), &result);
     fs::write(session.path.join("transcricao.md"), md)?;
 
     session::get(&root, &id)
+}
+
+#[tauri::command]
+pub fn get_transcription_language(settings: State<SettingsState>) -> Language {
+    settings.transcription_language()
+}
+
+#[tauri::command]
+pub fn set_transcription_language(
+    settings: State<SettingsState>,
+    language: Language,
+) -> AppResult<Language> {
+    settings.set_transcription_language(language)?;
+    Ok(language)
 }

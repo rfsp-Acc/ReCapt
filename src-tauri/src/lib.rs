@@ -27,6 +27,9 @@ pub fn run() {
             capture::stop_recording,
             capture::toggle_screen_capture,
             capture::recording_status,
+            capture::list_input_devices,
+            capture::set_input_device,
+            capture::recover_interrupted,
             files::list_sessions,
             files::get_session,
             files::open_session_folder,
@@ -35,6 +38,8 @@ pub fn run() {
             files::reset_output_dir,
             files::open_output_dir,
             transcribe::transcribe,
+            transcribe::get_transcription_language,
+            transcribe::set_transcription_language,
         ])
         .run(tauri::generate_context!())
         .expect("erro ao iniciar o ReCapt");

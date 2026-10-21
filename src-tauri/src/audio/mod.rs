@@ -1,5 +1,6 @@
 //! Captura de audio: microfone + audio do sistema, mixados em audio.wav.
 
+pub mod clock;
 pub mod mixer;
 pub mod recorder;
 mod resampler;

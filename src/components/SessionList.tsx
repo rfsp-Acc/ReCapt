@@ -32,10 +32,13 @@ export function SessionList({ sessions, transcribing, onTranscribe }: Props) {
                 <span className="progress-label">Transcrevendo {percent}%</span>
               </span>
             ) : (
-              s.hasAudio &&
-              !s.hasTranscript && (
-                <button className="link" onClick={() => onTranscribe(s.id)}>
-                  Transcrever
+              s.hasAudio && (
+                <button
+                  className="link"
+                  onClick={() => onTranscribe(s.id)}
+                  title={s.hasTranscript ? "Substitui o transcricao.md atual" : undefined}
+                >
+                  {s.hasTranscript ? "Transcrever novamente" : "Transcrever"}
                 </button>
               )
             )}

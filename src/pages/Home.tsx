@@ -1,11 +1,17 @@
+import { useEffect, useState } from "react";
+import { LanguageSetting } from "../components/LanguageSetting";
+import { MicrophoneSetting } from "../components/MicrophoneSetting";
 import { OutputDirSetting } from "../components/OutputDirSetting";
 import { RecordButton } from "../components/RecordButton";
 import { ScreenToggle } from "../components/ScreenToggle";
 import { SessionList } from "../components/SessionList";
+import { useInputDevices } from "../hooks/useInputDevices";
 import { useOutputDir } from "../hooks/useOutputDir";
 import { useRecording } from "../hooks/useRecording";
 import { useSessions } from "../hooks/useSessions";
 import { useTranscription } from "../hooks/useTranscription";
+import { useTranscriptionLanguage } from "../hooks/useTranscriptionLanguage";
+import { api } from "../lib/tauri";
 
 export function Home() {
   const sessions = useSessions();
@@ -17,7 +23,23 @@ export function Home() {
   });
   // Trocar a pasta muda quais sessoes aparecem na lista.
   const outputDir = useOutputDir(sessions.refresh);
-  const error = rec.error ?? transcription.error ?? outputDir.error ?? sessions.error;
+  const language = useTranscriptionLanguage();
+  const mics = useInputDevices();
+  const [recovered, setRecovered] = useState<string[]>([]);
+  const error =
+    rec.error ?? transcription.error ?? outputDir.error ?? language.error ?? mics.error ?? sessions.error;
+
+  // Gravacoes interrompidas (app fechado no meio) ganham audio.wav e podem ser transcritas.
+  useEffect(() => {
+    api
+      .recoverInterrupted()
+      .then((ids) => {
+        if (ids.length === 0) return;
+        setRecovered(ids);
+        sessions.refresh();
+      })
+      .catch(() => {});
+  }, [sessions.refresh]);
 
   return (
     <main className="home">
@@ -46,9 +68,18 @@ export function Home() {
             Gravando: {rec.status.sources.map((s) => (s === "microphone" ? "microfone" : "áudio do sistema")).join(" + ")}
           </p>
         )}
-        {rec.status.warnings.map((w) => (
+        {/* So os avisos mais recentes: trocas de dispositivo podem se acumular numa reuniao longa. */}
+        {rec.status.warnings.slice(-3).map((w) => (
           <p key={w} className="warning">{w}</p>
         ))}
+        {recovered.length > 0 && (
+          <p className="warning">
+            {recovered.length === 1
+              ? "1 gravação interrompida foi recuperada."
+              : `${recovered.length} gravações interrompidas foram recuperadas.`}{" "}
+            Use "Transcrever" na lista abaixo.
+          </p>
+        )}
         {error && <p className="error">{error}</p>}
       </section>
 
@@ -61,6 +92,13 @@ export function Home() {
           onReset={outputDir.reset}
           onOpen={outputDir.open}
         />
+        <MicrophoneSetting
+          devices={mics.devices}
+          selected={mics.selected}
+          onSelect={mics.select}
+          onRefresh={mics.refresh}
+        />
+        <LanguageSetting language={language.language} onChange={language.change} />
         <SessionList
           sessions={sessions.sessions}
           transcribing={transcription.progress}

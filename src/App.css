@@ -151,3 +151,15 @@ button.link {
 }
 
 .output-dir-actions { display: flex; gap: 4px; flex-shrink: 0; }
+
+.language-setting {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 0.85rem;
+}
+
+.language-setting select { font: inherit; padding: 2px 4px; }
+.hint { flex-basis: 100%; font-size: 0.75rem; opacity: 0.5; }

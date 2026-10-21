@@ -30,6 +30,20 @@ export interface TranscriptionProgress {
   percent: number;
 }
 
+export interface InputDevice {
+  id: string;
+  name: string;
+  isDefault: boolean;
+}
+
+export interface InputDevices {
+  devices: InputDevice[];
+  /** `null` segue o padrao do sistema. */
+  selected: string | null;
+}
+
+export type TranscriptionLanguage = "auto" | "pt" | "en";
+
 export interface OutputDir {
   path: string;
   isDefault: boolean;
@@ -42,6 +56,10 @@ export const api = {
   stopRecording: () => invoke<string>("stop_recording"),
   toggleScreenCapture: () => invoke<boolean>("toggle_screen_capture"),
   recordingStatus: () => invoke<RecordingStatus>("recording_status"),
+  listInputDevices: () => invoke<InputDevices>("list_input_devices"),
+  setInputDevice: (id: string | null) => invoke<void>("set_input_device", { id }),
+  /** Ids das sessoes interrompidas que ganharam audio.wav. */
+  recoverInterrupted: () => invoke<string[]>("recover_interrupted"),
   listSessions: () => invoke<Session[]>("list_sessions"),
   getSession: (id: string) => invoke<Session>("get_session", { id }),
   openSessionFolder: (id: string) => invoke<void>("open_session_folder", { id }),
@@ -50,6 +68,9 @@ export const api = {
   chooseOutputDir: () => invoke<OutputDir | null>("choose_output_dir"),
   resetOutputDir: () => invoke<OutputDir>("reset_output_dir"),
   openOutputDir: () => invoke<void>("open_output_dir"),
+  getTranscriptionLanguage: () => invoke<TranscriptionLanguage>("get_transcription_language"),
+  setTranscriptionLanguage: (language: TranscriptionLanguage) =>
+    invoke<TranscriptionLanguage>("set_transcription_language", { language }),
   transcribe: (id: string) => invoke<Session>("transcribe", { id }),
   onTranscriptionProgress: (cb: (p: TranscriptionProgress) => void) =>
     listen<TranscriptionProgress>("transcription-progress", (e) => cb(e.payload)),
