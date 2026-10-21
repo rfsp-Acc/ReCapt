@@ -20,6 +20,14 @@ pub enum AppError {
     NotWritable(std::path::PathBuf),
     #[error("nao e possivel trocar a pasta durante uma gravacao")]
     ChangeDirWhileRecording,
+    #[error("nome invalido: \"{0}\"")]
+    InvalidName(String),
+    #[error("o nome pode ter no maximo 80 caracteres")]
+    NameTooLong,
+    #[error("ja existe um projeto chamado \"{0}\"")]
+    ProjectExists(String),
+    #[error("projeto nao encontrado: \"{0}\"")]
+    ProjectNotFound(String),
     #[error("pasta pessoal do usuario nao encontrada")]
     NoHomeDir,
     #[error(transparent)]

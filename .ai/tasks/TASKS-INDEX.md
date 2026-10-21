@@ -10,3 +10,4 @@
 | TASK-06 | Idioma da transcricao | Concluido | Claude |
 | TASK-07 | Robustez e dispositivos Bluetooth | Concluido | Claude |
 | TASK-08 | Versao instalavel (.app) e icone | Concluido | Claude |
+| TASK-09 | Organizacao por Projeto / Frente / Data | Concluido | Claude |

@@ -79,13 +79,15 @@ impl CaptureState {
 pub fn start_recording(
     state: State<CaptureState>,
     settings: State<SettingsState>,
+    project: String,
+    front: String,
 ) -> AppResult<RecordingStatus> {
     {
         let mut active = state.0.lock().unwrap();
         if active.is_some() {
             return Err(AppError::AlreadyRecording);
         }
-        let session = session::create(&settings.output_dir()?, Local::now())?;
+        let session = session::create(&settings.output_dir()?, &project, &front, Local::now())?;
         let recorder = match Recorder::start(&session.path, settings.mic_choice()) {
             Ok(r) => r,
             Err(e) => {

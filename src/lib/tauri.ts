@@ -6,12 +6,20 @@ export interface Session {
   id: string;
   name: string;
   path: string;
+  /** `null` nas sessoes antigas, sem projeto. */
+  project: string | null;
+  front: string | null;
   hasAudio: boolean;
   hasVideo: boolean;
   hasTranscript: boolean;
   hasAnalysis: boolean;
   /** `null` quando a sessao nao tem audio.wav. */
   durationMs: number | null;
+}
+
+export interface Project {
+  name: string;
+  fronts: string[];
 }
 
 export interface Levels {
@@ -60,7 +68,8 @@ export interface OutputDir {
 }
 
 export const api = {
-  startRecording: () => invoke<RecordingStatus>("start_recording"),
+  startRecording: (project: string, front: string) =>
+    invoke<RecordingStatus>("start_recording", { project, front }),
   pauseRecording: () => invoke<RecordingStatus>("pause_recording"),
   resumeRecording: () => invoke<RecordingStatus>("resume_recording"),
   stopRecording: () => invoke<string>("stop_recording"),
@@ -70,6 +79,8 @@ export const api = {
   setInputDevice: (id: string | null) => invoke<void>("set_input_device", { id }),
   /** Ids das sessoes interrompidas que ganharam audio.wav. */
   recoverInterrupted: () => invoke<string[]>("recover_interrupted"),
+  listProjects: () => invoke<Project[]>("list_projects"),
+  createProject: (name: string) => invoke<Project>("create_project", { name }),
   listSessions: () => invoke<Session[]>("list_sessions"),
   getSession: (id: string) => invoke<Session>("get_session", { id }),
   openSessionFolder: (id: string) => invoke<void>("open_session_folder", { id }),

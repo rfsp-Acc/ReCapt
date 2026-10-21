@@ -33,6 +33,8 @@ pub fn run() {
             capture::set_input_device,
             capture::recover_interrupted,
             files::list_sessions,
+            files::list_projects,
+            files::create_project,
             files::get_session,
             files::open_session_folder,
             files::open_session_file,

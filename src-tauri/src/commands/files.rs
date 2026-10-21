@@ -6,7 +6,7 @@ use tauri_plugin_opener::OpenerExt;
 
 use crate::commands::capture::CaptureState;
 use crate::error::{AppError, AppResult};
-use crate::session::{self, Session};
+use crate::session::{self, Project, Session};
 use crate::settings::SettingsState;
 
 #[derive(Serialize)]
@@ -26,6 +26,18 @@ fn output_dir_view(settings: &SettingsState) -> AppResult<OutputDir> {
 #[tauri::command]
 pub fn list_sessions(settings: State<SettingsState>) -> AppResult<Vec<Session>> {
     session::list(&settings.output_dir()?)
+}
+
+#[tauri::command]
+pub fn list_projects(settings: State<SettingsState>) -> AppResult<Vec<Project>> {
+    session::projects(&settings.output_dir()?)
+}
+
+#[tauri::command]
+pub fn create_project(settings: State<SettingsState>, name: String) -> AppResult<Project> {
+    let root = settings.output_dir()?;
+    std::fs::create_dir_all(&root)?;
+    session::create_project(&root, &name)
 }
 
 #[tauri::command]

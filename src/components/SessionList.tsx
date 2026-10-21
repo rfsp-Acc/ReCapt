@@ -10,14 +10,17 @@ interface Props {
   onTranscribe: (id: string) => void;
   onCopied: (text: string) => void;
   onError: (text: string) => void;
+  /** Quanto do caminho mostrar em cada sessao: tudo, so a frente ou nada (ja esta no titulo). */
+  context: "full" | "front" | "none";
+  emptyText: string;
 }
 
-export function SessionList({ sessions, transcribing, onTranscribe, onCopied, onError }: Props) {
+export function SessionList({ sessions, transcribing, onTranscribe, onCopied, onError, context, emptyText }: Props) {
   if (sessions.length === 0) {
     return (
       <div className="empty">
-        <p className="empty-title">Nenhuma sessão ainda</p>
-        <p>Clique no botão vermelho para gravar sua primeira reunião. A transcrição aparece aqui ao terminar.</p>
+        <p className="empty-title">Nenhuma sessão aqui</p>
+        <p>{emptyText}</p>
       </div>
     );
   }
@@ -45,6 +48,7 @@ export function SessionList({ sessions, transcribing, onTranscribe, onCopied, on
                 onTranscribe={onTranscribe}
                 onCopied={onCopied}
                 onError={onError}
+                context={context}
               />
             ))}
           </ul>
@@ -60,9 +64,10 @@ interface RowProps {
   onTranscribe: (id: string) => void;
   onCopied: (text: string) => void;
   onError: (text: string) => void;
+  context: Props["context"];
 }
 
-function SessionRow({ session: s, percent, onTranscribe, onCopied, onError }: RowProps) {
+function SessionRow({ session: s, percent, onTranscribe, onCopied, onError, context }: RowProps) {
   const { title } = parseSessionName(s.name);
   const transcribing = percent !== undefined;
   const fail = (e: unknown) => onError(String(e));
@@ -79,7 +84,14 @@ function SessionRow({ session: s, percent, onTranscribe, onCopied, onError }: Ro
   return (
     <li className="session-row">
       <div className="session-text">
-        <span className="session-title">{title || s.name}</span>
+        <span className="session-title">
+          {title || s.name}
+          {context !== "none" && s.front && (
+            <span className="session-context">
+              {context === "full" && s.project ? `${s.project} / ${s.front}` : s.front}
+            </span>
+          )}
+        </span>
         <span className="session-meta">
           {s.durationMs !== null ? formatDuration(s.durationMs) : "sem áudio"}
           {s.hasTranscript && <span className="badge is-done">Transcrita</span>}
