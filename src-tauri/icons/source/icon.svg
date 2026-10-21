@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2c2c34"/>
+      <stop offset="1" stop-color="#141418"/>
+    </linearGradient>
+    <radialGradient id="dot" cx="0.4" cy="0.35" r="0.75">
+      <stop offset="0" stop-color="#ff6a5f"/>
+      <stop offset="1" stop-color="#e0281d"/>
+    </radialGradient>
+  </defs>
+  <!-- Area util do icone do macOS: 824x824 centralizado, cantos de ~185 px -->
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#bg)"/>
+  <!-- Ondas sonoras dos dois lados: microfone + audio do sistema -->
+  <g fill="none" stroke="#f5f5f7" stroke-linecap="round" stroke-width="34">
+    <path d="M318 372 A200 200 0 0 0 318 652" opacity="0.9"/>
+    <path d="M238 302 A300 300 0 0 0 238 722" opacity="0.45"/>
+    <path d="M706 372 A200 200 0 0 1 706 652" opacity="0.9"/>
+    <path d="M786 302 A300 300 0 0 1 786 722" opacity="0.45"/>
+  </g>
+  <!-- Ponto de gravacao -->
+  <circle cx="512" cy="512" r="118" fill="url(#dot)"/>
+</svg>
