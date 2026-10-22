@@ -170,17 +170,35 @@ button, select { font: inherit; color: inherit; }
 .sidebar-add:hover { background: var(--accent-soft); }
 
 /* Campos de texto e janela de novo projeto */
-.text-input {
-  padding: 6px 10px;
+/* Campos de texto e listas com a mesma altura, fonte e borda em todo o app. */
+.text-input,
+select {
+  box-sizing: border-box;
+  height: 32px;
+  padding: 0 10px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
-  background: var(--surface);
+  background-color: var(--surface);
   font: inherit;
+  font-size: 0.9rem;
+  line-height: 30px;
   color: inherit;
   min-width: 0;
 }
 
-.text-input:disabled { opacity: 0.5; }
+/* Sem a aparencia nativa do macOS, que ignora altura e padding; a seta e desenhada aqui. */
+select {
+  appearance: none;
+  padding-right: 28px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238e8e93' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  cursor: pointer;
+  text-overflow: ellipsis;
+}
+
+.text-input:disabled,
+select:disabled { opacity: 0.5; cursor: default; }
 .text-input[aria-invalid="true"] { border-color: var(--record); }
 .field-hint.is-error { color: var(--record); }
 
@@ -217,14 +235,17 @@ button, select { font: inherit; color: inherit; }
 .button:hover:not(:disabled) { background: var(--surface-2); }
 .button.is-primary { background: var(--accent); border-color: transparent; color: #fff; }
 .button.is-primary:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 88%, #000); }
+.button.is-danger { background: var(--record); border-color: transparent; color: #fff; }
+.button.is-danger:hover:not(:disabled) { background: color-mix(in srgb, var(--record) 88%, #000); }
 .button.is-quiet { background: transparent; border-color: transparent; color: var(--accent); }
 .button.is-quiet:hover:not(:disabled) { background: var(--accent-soft); }
 
 .icon-button {
   display: inline-grid;
   place-items: center;
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
   border-radius: var(--radius-sm);
   border: none;
   background: transparent;
@@ -336,7 +357,6 @@ button:disabled { opacity: 0.45; cursor: default; }
 .field-optional { font-weight: 400; color: var(--text-2); }
 
 .capture-target .field { gap: 5px; }
-.capture-target .field-row select { flex: 1; }
 
 .capture-path {
   margin-top: -8px;
@@ -345,16 +365,13 @@ button:disabled { opacity: 0.45; cursor: default; }
   color: var(--text-2);
 }
 
+.capture-destination { display: flex; align-items: center; gap: 6px; margin-top: -6px; color: var(--text-2); font-size: 0.85rem; }
+.capture-destination-path { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.capture-destination .button { padding-block: 3px; font-size: 0.82rem; white-space: nowrap; }
+
 .mic-picker { display: flex; align-items: center; gap: 8px; color: var(--text-2); }
 .mic-picker select { max-width: 100%; }
 
-select {
-  padding: 5px 8px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background: var(--surface);
-  min-width: 0;
-}
 
 .meter { display: grid; grid-template-columns: 16px minmax(0, 200px) 1fr auto; align-items: center; gap: 10px; color: var(--text-2); }
 .meter-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.85rem; }
@@ -465,6 +482,12 @@ select {
 }
 
 .menu-popover button:hover { background: var(--accent); color: #fff; }
+.menu-popover button.is-danger { color: var(--record); }
+.menu-popover button.is-danger:hover { background: var(--record); color: #fff; }
+.menu-separator { height: 1px; margin: 4px 6px; background: var(--border); }
+
+.dialog-text { display: flex; flex-direction: column; gap: 8px; color: var(--text-2); }
+.dialog-text strong { color: var(--text); font-weight: 600; }
 
 .empty {
   text-align: center;

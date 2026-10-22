@@ -26,3 +26,8 @@ dist-ssr
 # ReCapt
 models/
 output/
+
+# Reunioes gravadas no repositorio: so os textos (transcricao, analise) vao para o Git
+.ai/docs/reunioes/**/*.wav
+.ai/docs/reunioes/**/*.mp3
+.ai/docs/reunioes/**/*.mp4

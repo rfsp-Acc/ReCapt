@@ -26,6 +26,10 @@ pub enum AppError {
     NameTooLong,
     #[error("ja existe um projeto chamado \"{0}\"")]
     ProjectExists(String),
+    #[error("a sessao esta sendo gravada ou transcrita; aguarde terminar")]
+    SessionBusy,
+    #[error("não é possível mover para esta pasta: {0}")]
+    InvalidDestination(String),
     #[error("projeto nao encontrado: \"{0}\"")]
     ProjectNotFound(String),
     #[error("pasta pessoal do usuario nao encontrada")]

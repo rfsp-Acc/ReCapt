@@ -12,3 +12,4 @@
 | TASK-08 | Versao instalavel (.app) e icone | Concluido | Claude |
 | TASK-09 | Organizacao por Projeto / Frente / Data | Concluido | Claude |
 | TASK-10 | Tema como pasta e assunto da reuniao | Concluido | Claude |
+| TASK-11 | Pasta propria por frente e gestao de reunioes | Concluido | Claude |

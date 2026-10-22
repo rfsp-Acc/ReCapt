@@ -1,4 +1,4 @@
-import { formatClock } from "../lib/format";
+import { formatClock, shortPath } from "../lib/format";
 import { Target } from "../hooks/useLastTarget";
 import { InputDevice, Levels, Project, RecordingStatus } from "../lib/tauri";
 import { Icon } from "./Icon";
@@ -20,6 +20,10 @@ interface Props {
   subject: string;
   onSubject: (subject: string) => void;
   onAddProject: () => void;
+  /** Pasta de salvamento, base das frentes sem pasta propria. */
+  outputDir: string | null;
+  onChooseFrontDir: () => void;
+  onResetFrontDir: () => void;
   onStart: () => void;
   onStop: () => void;
   onPause: () => void;
@@ -41,6 +45,11 @@ export function CaptureCard(p: Props) {
     p.mics.find((d) => d.id === p.selectedMic)?.name ?? p.mics.find((d) => d.isDefault)?.name ?? "Microfone";
   const project = p.projects.find((x) => x.name === p.target.project);
   const front = project?.fronts.find((f) => f.name.toLowerCase() === p.target.front.trim().toLowerCase());
+  const frontName = front?.name ?? p.target.front.trim();
+  const theme = p.target.theme.trim() || "<Tema>";
+  const destination = project && frontName
+    ? `${front?.dir ?? `${p.outputDir ?? "..."}/${project.name}/${frontName}`}/${theme}`
+    : null;
   const ready = project !== undefined && p.target.front.trim() !== "" && p.target.theme.trim() !== "";
   // Ultimo aviso de dispositivo: os anteriores ja foram resolvidos ou substituidos.
   const lastWarning = p.status.warnings[p.status.warnings.length - 1];
@@ -154,6 +163,24 @@ export function CaptureCard(p: Props) {
               disabled={!project || p.saving}
             />
           </label>
+        </div>
+      )}
+
+      {!recording && destination && (
+        <div className="capture-destination">
+          <Icon name="folder" size={16} />
+          <span className="capture-destination-path" title={destination}>
+            {front?.dir ? "Pasta da frente: " : "Salva em: "}
+            {shortPath(destination)}
+          </span>
+          <button className="button is-quiet" onClick={p.onChooseFrontDir} disabled={p.saving}>
+            {front?.dir ? "Alterar" : "Escolher pasta da frente"}
+          </button>
+          {front?.dir && (
+            <button className="button is-quiet" onClick={p.onResetFrontDir} disabled={p.saving}>
+              Usar padrão
+            </button>
+          )}
         </div>
       )}
 

@@ -16,19 +16,7 @@ pub fn to_markdown(title: &str, context: &Context, transcript: &Transcript) -> S
     let segments = &transcript.segments;
     let duration = segments.last().map(|s| s.end_ms).unwrap_or(0);
     let origin = if transcript.detected { "detectado automaticamente" } else { "escolhido nas configurações" };
-    // O nome mais especifico disponivel: assunto, tema ou frente.
-    let heading = match context.subject.or(context.theme).or(context.front) {
-        Some(name) => format!("{name}, {title}"),
-        None => title.to_string(),
-    };
-    let mut md = format!("# Transcrição: {heading}\n\n");
-    let place: Vec<String> = [("Projeto", context.project), ("Frente", context.front), ("Tema", context.theme)]
-        .iter()
-        .filter_map(|(label, value)| value.map(|v| format!("{label}: {v}")))
-        .collect();
-    if !place.is_empty() {
-        md.push_str(&format!("{}\n\n", place.join(" | ")));
-    }
+    let mut md = header(title, context);
     md.push_str(&format!(
         "Duração: {} | Idioma: {} ({origin})\n\n",
         timestamp(duration),
@@ -43,6 +31,36 @@ pub fn to_markdown(title: &str, context: &Context, transcript: &Transcript) -> S
         md.push_str(&format!("**[{}]** {}\n\n", timestamp(s.start_ms), s.text));
     }
     md
+}
+
+/// Titulo e linha "Projeto | Frente | Tema".
+fn header(title: &str, context: &Context) -> String {
+    // O nome mais especifico disponivel: assunto, tema ou frente.
+    let heading = match context.subject.or(context.theme).or(context.front) {
+        Some(name) => format!("{name}, {title}"),
+        None => title.to_string(),
+    };
+    let mut md = format!("# Transcrição: {heading}\n\n");
+    let place: Vec<String> = [("Projeto", context.project), ("Frente", context.front), ("Tema", context.theme)]
+        .iter()
+        .filter_map(|(label, value)| value.map(|v| format!("{label}: {v}")))
+        .collect();
+    if !place.is_empty() {
+        md.push_str(&format!("{}\n\n", place.join(" | ")));
+    }
+    md
+}
+
+/// Troca o cabecalho de um transcricao.md ja gerado (sessao movida), mantendo as falas.
+/// Arquivo sem o cabecalho esperado volta sem mudanca.
+pub fn retitle(md: &str, title: &str, context: &Context) -> String {
+    if !md.starts_with("# Transcrição:") {
+        return md.to_string();
+    }
+    match md.find("\nDuração:") {
+        Some(i) => format!("{}{}", header(title, context), &md[i + 1..]),
+        None => md.to_string(),
+    }
 }
 
 /// Nome da pasta "AAAA-MM-DD_resto" para exibicao "DD-MM-AAAA resto",

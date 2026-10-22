@@ -15,6 +15,12 @@ use crate::whisper::{engine, models, transcript};
 #[derive(Default)]
 pub struct TranscribeState(Mutex<HashSet<String>>);
 
+impl TranscribeState {
+    pub fn is_transcribing(&self, id: &str) -> bool {
+        self.0.lock().unwrap().contains(id)
+    }
+}
+
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct Progress {

@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { AddProjectDialog } from "../components/AddProjectDialog";
 import { CaptureCard } from "../components/CaptureCard";
+import { DeleteSessionDialog } from "../components/DeleteSessionDialog";
 import { Icon } from "../components/Icon";
 import { Notices } from "../components/Notices";
+import { RenameSessionDialog } from "../components/RenameSessionDialog";
 import { SessionList } from "../components/SessionList";
 import { SettingsPanel } from "../components/SettingsPanel";
 import { matches, Selection, Sidebar } from "../components/Sidebar";
@@ -16,7 +18,8 @@ import { useRecording } from "../hooks/useRecording";
 import { useSessions } from "../hooks/useSessions";
 import { useTranscription } from "../hooks/useTranscription";
 import { useTranscriptionLanguage } from "../hooks/useTranscriptionLanguage";
-import { api } from "../lib/tauri";
+import { shortPath } from "../lib/format";
+import { api, RenameTarget, Session } from "../lib/tauri";
 
 export function Home() {
   const notices = useNotices();
@@ -45,6 +48,10 @@ export function Home() {
   const [addProjectOpen, setAddProjectOpen] = useState(false);
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
   const closeAddProject = useCallback(() => setAddProjectOpen(false), []);
+  const [renaming, setRenaming] = useState<Session | null>(null);
+  const closeRename = useCallback(() => setRenaming(null), []);
+  const [deleting, setDeleting] = useState<Session | null>(null);
+  const closeDelete = useCallback(() => setDeleting(null), []);
 
   useErrorNotice(rec.error, notices.push);
   useErrorNotice(transcription.error, notices.push);
@@ -86,6 +93,59 @@ export function Home() {
     setTarget({ project: project.name, front: "", theme: "" });
     setSelection({ kind: "project", project: project.name });
     notices.push("success", `Projeto "${project.name}" criado.`);
+  };
+
+  // A pasta vale para a frente: todas as proximas reunioes dela vao para la.
+  const changeFrontDir = async (reset: boolean) => {
+    try {
+      const front = reset
+        ? await api.resetFrontDir(target.project, target.front)
+        : await api.chooseFrontDir(target.project, target.front);
+      if (!front) return;
+      setTarget({ front });
+      refreshAll();
+      notices.push(
+        "success",
+        reset
+          ? `A frente "${front}" volta a gravar na pasta de salvamento.`
+          : `As próximas reuniões da frente "${front}" serão salvas na pasta escolhida.`,
+      );
+    } catch (e) {
+      notices.push("error", String(e));
+    }
+  };
+
+  const moveSession = async (session: Session) => {
+    try {
+      const moved = await api.moveSession(session.id);
+      if (!moved) return;
+      refreshAll();
+      const place = [moved.project, moved.front, moved.theme].join(" / ");
+      const parent = moved.path.slice(0, moved.path.lastIndexOf("/"));
+      notices.push(
+        "success",
+        place === [session.project, session.front, session.theme].join(" / ")
+          ? `Reunião movida para ${shortPath(parent)}. No app, ela continua em ${place}.`
+          : `Reunião movida para ${place}.`,
+      );
+    } catch (e) {
+      notices.push("error", String(e));
+    }
+  };
+
+  const renameSession = async (session: Session, target: RenameTarget) => {
+    const renamed = await api.renameSession(session.id, target);
+    refreshAll();
+    notices.push(
+      "success",
+      session.theme === null ? `Reunião organizada em ${[renamed.project, renamed.front, renamed.theme].join(" / ")}.` : "Assunto atualizado.",
+    );
+  };
+
+  const deleteSession = async (session: Session) => {
+    await api.deleteSession(session.id);
+    refreshAll();
+    notices.push("success", "Gravação excluída.");
   };
 
   const visible = sessions.sessions.filter((s) => matches(s, selection));
@@ -135,6 +195,9 @@ export function Home() {
             target={target}
             onTarget={setTarget}
             onAddProject={() => setAddProjectOpen(true)}
+            outputDir={outputDir.dir?.path ?? null}
+            onChooseFrontDir={() => changeFrontDir(false)}
+            onResetFrontDir={() => changeFrontDir(true)}
             subject={subject}
             onSubject={setSubject}
             onStart={() => {
@@ -155,6 +218,9 @@ export function Home() {
               onTranscribe={transcription.transcribe}
               onCopied={(text) => notices.push("success", text)}
               onError={(text) => notices.push("error", text)}
+              onMove={moveSession}
+              onRename={setRenaming}
+              onDelete={setDeleting}
               context={
                 { all: "full", none: "none", project: "front", front: "theme", theme: "none" }[selection.kind] as
                   | "full"
@@ -187,6 +253,10 @@ export function Home() {
         language={language.language}
         onLanguage={language.change}
       />
+
+      <RenameSessionDialog session={renaming} projects={projects.projects} onClose={closeRename} onRename={renameSession} />
+
+      <DeleteSessionDialog session={deleting} onClose={closeDelete} onDelete={deleteSession} />
 
       <AddProjectDialog open={addProjectOpen} onClose={closeAddProject} onCreate={createProject} />
 

@@ -10,12 +10,15 @@ interface Props {
   onTranscribe: (id: string) => void;
   onCopied: (text: string) => void;
   onError: (text: string) => void;
+  onMove: (session: Session) => void;
+  onRename: (session: Session) => void;
+  onDelete: (session: Session) => void;
   /** Quanto do caminho mostrar em cada sessao; o que ja esta no titulo da tela fica de fora. */
   context: "full" | "front" | "theme" | "none";
   emptyText: string;
 }
 
-export function SessionList({ sessions, transcribing, onTranscribe, onCopied, onError, context, emptyText }: Props) {
+export function SessionList({ sessions, transcribing, onTranscribe, onCopied, onError, onMove, onRename, onDelete, context, emptyText }: Props) {
   if (sessions.length === 0) {
     return (
       <div className="empty">
@@ -48,6 +51,9 @@ export function SessionList({ sessions, transcribing, onTranscribe, onCopied, on
                 onTranscribe={onTranscribe}
                 onCopied={onCopied}
                 onError={onError}
+                onMove={onMove}
+                onRename={onRename}
+                onDelete={onDelete}
                 context={context}
               />
             ))}
@@ -64,17 +70,21 @@ interface RowProps {
   onTranscribe: (id: string) => void;
   onCopied: (text: string) => void;
   onError: (text: string) => void;
+  onMove: (session: Session) => void;
+  onRename: (session: Session) => void;
+  onDelete: (session: Session) => void;
   context: Props["context"];
 }
 
-function SessionRow({ session: s, percent, onTranscribe, onCopied, onError, context }: RowProps) {
+function SessionRow({ session: s, percent, onTranscribe, onCopied, onError, onMove, onRename, onDelete, context }: RowProps) {
   const { time } = parseSessionName(s.name);
-  const place = {
-    full: [s.project, s.front, s.theme],
-    front: [s.front, s.theme],
-    theme: [s.theme],
-    none: [],
-  }[context].filter(Boolean);
+  // Sem assunto, o titulo e o nivel mais especifico (tema, frente ou projeto), que sai do caminho
+  // para nao aparecer duas vezes.
+  const levels = [s.project, s.front, s.theme];
+  const titleLevel = s.subject ? -1 : levels.reduce((last, x, i) => (x !== null ? i : last), -1);
+  const title = s.subject ?? levels[titleLevel] ?? null;
+  const shown = levels.map((x, i) => (i === titleLevel ? null : x));
+  const place = { full: shown, front: shown.slice(1), theme: shown.slice(2), none: [] }[context].filter(Boolean);
   const transcribing = percent !== undefined;
   const fail = (e: unknown) => onError(String(e));
 
@@ -92,7 +102,7 @@ function SessionRow({ session: s, percent, onTranscribe, onCopied, onError, cont
       <div className="session-text">
         <span className="session-title">
           <span className="session-time">{time || s.name}</span>
-          {s.subject ? <span>{s.subject}</span> : <span className="session-no-subject">sem assunto</span>}
+          {title ? <span>{title}</span> : <span className="session-no-subject">sem assunto</span>}
           {place.length > 0 && <span className="session-context">{place.join(" / ")}</span>}
         </span>
         <span className="session-meta">
@@ -129,6 +139,9 @@ function SessionRow({ session: s, percent, onTranscribe, onCopied, onError, cont
         <RowMenu
           items={[
             { label: "Abrir pasta", onSelect: () => api.openSessionFolder(s.id).catch(fail) },
+            ...(!transcribing ? [{ label: "Mover para outra pasta...", onSelect: () => onMove(s) }] : []),
+            ...(!transcribing ? [{ label: "Renomear...", onSelect: () => onRename(s) }] : []),
+            ...(!transcribing ? [{ label: "Excluir...", onSelect: () => onDelete(s), danger: true }] : []),
             ...(s.hasTranscript && !transcribing
               ? [{ label: "Transcrever novamente", onSelect: () => onTranscribe(s.id) }]
               : []),
@@ -139,7 +152,14 @@ function SessionRow({ session: s, percent, onTranscribe, onCopied, onError, cont
   );
 }
 
-function RowMenu({ items }: { items: { label: string; onSelect: () => void }[] }) {
+interface MenuItem {
+  label: string;
+  onSelect: () => void;
+  /** Acao destrutiva: vermelha e separada das outras. */
+  danger?: boolean;
+}
+
+function RowMenu({ items }: { items: MenuItem[] }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -163,17 +183,20 @@ function RowMenu({ items }: { items: { label: string; onSelect: () => void }[] }
       </button>
       {open && (
         <div className="menu-popover" role="menu">
-          {items.map((item) => (
-            <button
-              key={item.label}
-              role="menuitem"
-              onClick={() => {
-                setOpen(false);
-                item.onSelect();
-              }}
-            >
-              {item.label}
-            </button>
+          {items.map((item, i) => (
+            <div key={item.label}>
+              {item.danger && i > 0 && <div className="menu-separator" role="separator" />}
+              <button
+                role="menuitem"
+                className={item.danger ? "is-danger" : undefined}
+                onClick={() => {
+                  setOpen(false);
+                  item.onSelect();
+                }}
+              >
+                {item.label}
+              </button>
+            </div>
           ))}
         </div>
       )}

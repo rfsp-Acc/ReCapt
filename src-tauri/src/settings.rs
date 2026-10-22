@@ -98,7 +98,7 @@ pub fn default_output_dir() -> AppResult<PathBuf> {
 }
 
 /// Falha cedo, na escolha da pasta, em vez de no fim de uma gravacao.
-fn ensure_writable(dir: &Path) -> AppResult<()> {
+pub fn ensure_writable(dir: &Path) -> AppResult<()> {
     let probe = dir.join(".recapt-teste-escrita");
     fs::write(&probe, b"")
         .and_then(|_| fs::remove_file(&probe))

@@ -1,13 +1,14 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tauri::State;
 use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_opener::OpenerExt;
 
 use crate::commands::capture::CaptureState;
+use crate::commands::transcribe::TranscribeState;
 use crate::error::{AppError, AppResult};
 use crate::session::{self, Project, Session};
-use crate::settings::SettingsState;
+use crate::settings::{self, SettingsState};
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -38,6 +39,85 @@ pub fn create_project(settings: State<SettingsState>, name: String) -> AppResult
     let root = settings.output_dir()?;
     std::fs::create_dir_all(&root)?;
     session::create_project(&root, &name)
+}
+
+fn ensure_idle(capture: &CaptureState, transcribe: &TranscribeState, id: &str) -> AppResult<()> {
+    if capture.active_session_id().as_deref() == Some(id) || transcribe.is_transcribing(id) {
+        return Err(AppError::SessionBusy);
+    }
+    Ok(())
+}
+
+/// Abre o Finder para escolher para onde mover a sessao. Devolve `None` se o usuario cancelar.
+#[tauri::command]
+pub async fn move_session(
+    app: tauri::AppHandle,
+    settings: State<'_, SettingsState>,
+    capture: State<'_, CaptureState>,
+    transcribe: State<'_, TranscribeState>,
+    id: String,
+) -> AppResult<Option<Session>> {
+    ensure_idle(&capture, &transcribe, &id)?;
+    let root = settings.output_dir()?;
+    let current = session::get(&root, &id)?;
+    let start = current.path.parent().map(|p| p.to_path_buf()).unwrap_or(root.clone());
+    let picked = app
+        .dialog()
+        .file()
+        .set_title("Mover a reunião para...")
+        .set_directory(start)
+        .blocking_pick_folder();
+
+    let Some(picked) = picked else { return Ok(None) };
+    let dir = picked.into_path().map_err(|e| std::io::Error::other(e.to_string()))?;
+    // A gravacao pode ter comecado enquanto o Finder estava aberto.
+    ensure_idle(&capture, &transcribe, &id)?;
+    settings::ensure_writable(&dir)?;
+    session::move_to_folder(&root, &id, &dir).map(Some)
+}
+
+/// Campos da renomeacao; projeto, frente e tema so vem quando a sessao nao os tem.
+#[derive(Deserialize)]
+pub struct RenameTarget {
+    project: Option<String>,
+    front: Option<String>,
+    theme: Option<String>,
+    subject: String,
+}
+
+/// Troca o assunto da sessao; a pasta e renomeada onde estiver.
+/// Sessoes antigas, sem projeto, frente ou tema, recebem o que falta e vao para a pasta do tema.
+#[tauri::command]
+pub fn rename_session(
+    settings: State<SettingsState>,
+    capture: State<CaptureState>,
+    transcribe: State<TranscribeState>,
+    id: String,
+    target: RenameTarget,
+) -> AppResult<Session> {
+    ensure_idle(&capture, &transcribe, &id)?;
+    let root = settings.output_dir()?;
+    let current = session::get(&root, &id)?;
+    let complete = current.project.is_some() && current.front.is_some() && current.theme.is_some();
+    let pick = |now: &Option<String>, given: &Option<String>| now.clone().or_else(|| given.clone()).unwrap_or_default();
+    let project = pick(&current.project, &target.project);
+    let front = pick(&current.front, &target.front);
+    let theme = pick(&current.theme, &target.theme);
+    let new = session::NewSession { project: &project, front: &front, theme: &theme, subject: &target.subject };
+    let place = if complete { session::Location::Keep } else { session::Location::Structure };
+    session::move_to(&root, &id, &new, place)
+}
+
+/// Exclui a sessao: a pasta e apagada com todos os arquivos.
+#[tauri::command]
+pub fn delete_session(
+    settings: State<SettingsState>,
+    capture: State<CaptureState>,
+    transcribe: State<TranscribeState>,
+    id: String,
+) -> AppResult<()> {
+    ensure_idle(&capture, &transcribe, &id)?;
+    session::delete(&settings.output_dir()?, &id)
 }
 
 #[tauri::command]
@@ -112,6 +192,46 @@ pub async fn choose_output_dir(
     let dir = picked.into_path().map_err(|e| std::io::Error::other(e.to_string()))?;
     settings.set_output_dir(Some(dir))?;
     output_dir_view(&settings).map(Some)
+}
+
+/// Escolhe a pasta propria de uma frente. Devolve `None` se o usuario cancelar.
+#[tauri::command]
+pub async fn choose_front_dir(
+    app: tauri::AppHandle,
+    settings: State<'_, SettingsState>,
+    capture: State<'_, CaptureState>,
+    project: String,
+    front: String,
+) -> AppResult<Option<String>> {
+    if capture.is_recording() {
+        return Err(AppError::ChangeDirWhileRecording);
+    }
+    let root = settings.output_dir()?;
+    let picked = app
+        .dialog()
+        .file()
+        .set_title(format!("Pasta das reuniões da frente \"{}\"", front.trim()))
+        .set_directory(dirs::home_dir().unwrap_or_default())
+        .blocking_pick_folder();
+
+    let Some(picked) = picked else { return Ok(None) };
+    let dir = picked.into_path().map_err(|e| std::io::Error::other(e.to_string()))?;
+    settings::ensure_writable(&dir)?;
+    session::set_front_dir(&root, &project, &front, Some(&dir)).map(Some)
+}
+
+/// A frente volta a gravar dentro da pasta de salvamento.
+#[tauri::command]
+pub fn reset_front_dir(
+    settings: State<SettingsState>,
+    capture: State<CaptureState>,
+    project: String,
+    front: String,
+) -> AppResult<String> {
+    if capture.is_recording() {
+        return Err(AppError::ChangeDirWhileRecording);
+    }
+    session::set_front_dir(&settings.output_dir()?, &project, &front, None)
 }
 
 #[tauri::command]

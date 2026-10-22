@@ -23,12 +23,22 @@ export interface Session {
 
 export interface Front {
   name: string;
+  /** Pasta propria da frente; `null` grava dentro da pasta de salvamento. */
+  dir: string | null;
   themes: string[];
 }
 
 export interface Project {
   name: string;
   fronts: Front[];
+}
+
+/** Projeto, frente e tema so quando a sessao nao os tem; `null` mantem o atual. */
+export interface RenameTarget {
+  project: string | null;
+  front: string | null;
+  theme: string | null;
+  subject: string;
 }
 
 export interface Levels {
@@ -92,6 +102,10 @@ export const api = {
   createProject: (name: string) => invoke<Project>("create_project", { name }),
   listSessions: () => invoke<Session[]>("list_sessions"),
   getSession: (id: string) => invoke<Session>("get_session", { id }),
+  /** Abre o Finder para escolher a pasta; `null` quando o usuario cancela. */
+  moveSession: (id: string) => invoke<Session | null>("move_session", { id }),
+  renameSession: (id: string, target: RenameTarget) => invoke<Session>("rename_session", { id, target }),
+  deleteSession: (id: string) => invoke<void>("delete_session", { id }),
   openSessionFolder: (id: string) => invoke<void>("open_session_folder", { id }),
   copyTranscriptPath: (id: string) => invoke<string>("copy_transcript_path", { id }),
   openSessionFile: (id: string, file: SessionFile) => invoke<void>("open_session_file", { id, file }),
@@ -100,6 +114,9 @@ export const api = {
   chooseOutputDir: () => invoke<OutputDir | null>("choose_output_dir"),
   resetOutputDir: () => invoke<OutputDir>("reset_output_dir"),
   openOutputDir: () => invoke<void>("open_output_dir"),
+  /** Devolve o nome da frente com a grafia existente, ou `null` se o usuario cancelar. */
+  chooseFrontDir: (project: string, front: string) => invoke<string | null>("choose_front_dir", { project, front }),
+  resetFrontDir: (project: string, front: string) => invoke<string>("reset_front_dir", { project, front }),
   getTranscriptionLanguage: () => invoke<TranscriptionLanguage>("get_transcription_language"),
   setTranscriptionLanguage: (language: TranscriptionLanguage) =>
     invoke<TranscriptionLanguage>("set_transcription_language", { language }),
