@@ -40,11 +40,15 @@ opt-level = 3
 panic = "abort"
 strip = true
 
-# Metal acelera o Whisper no Apple Silicon; nas outras plataformas, CPU por enquanto.
+# Placa de video no Whisper: Metal no Apple Silicon; Vulkan no Windows, que vem com o driver
+# de video (NVIDIA, AMD e Intel). Sem placa compativel, o whisper.cpp usa a CPU.
 [target.'cfg(target_os = "macos")'.dependencies]
 whisper-rs = { version = "0.16", features = ["metal"] }
 
-[target.'cfg(not(target_os = "macos"))'.dependencies]
+[target.'cfg(windows)'.dependencies]
+whisper-rs = { version = "0.16", features = ["vulkan"] }
+
+[target.'cfg(not(any(target_os = "macos", windows)))'.dependencies]
 whisper-rs = "0.16"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]

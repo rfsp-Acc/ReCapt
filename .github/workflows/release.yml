@@ -58,12 +58,19 @@ jobs:
           node-version: 22
           cache: pnpm
 
+      # Vulkan SDK: o whisper.cpp compila os shaders da placa de video com o glslc dele.
+      - if: runner.os == 'Windows'
+        uses: jakoch/install-vulkan-sdk-action@v1
+        with:
+          vulkan_version: latest
+          cache: true
+
       - uses: dtolnay/rust-toolchain@stable
 
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
-          key: ggml-portable
+          key: ggml-portable-vulkan
 
       - run: pnpm install --frozen-lockfile
 

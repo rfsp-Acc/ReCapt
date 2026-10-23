@@ -21,26 +21,31 @@ jobs:
           node-version: 22
           cache: pnpm
 
+      # Vulkan SDK: o whisper.cpp compila os shaders da placa de video com o glslc dele.
+      - uses: jakoch/install-vulkan-sdk-action@v1
+        with:
+          vulkan_version: latest
+          cache: true
+
       - uses: dtolnay/rust-toolchain@stable
 
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
           # Muda junto com as opcoes do whisper.cpp abaixo: o cache antigo traria a biblioteca velha.
-          key: ggml-portable
+          key: ggml-portable-vulkan
 
       - run: pnpm install --frozen-lockfile
 
       # whisper.cpp compila com cmake e MSVC, que ja vem na imagem windows-latest.
       # GGML_NATIVE=OFF: sem isso o whisper.cpp usa as instrucoes do processador do runner
-      # (ex.: AVX-512) e fecha na hora de transcrever em PCs que nao as tem. Fica AVX2,
+      # (ex.: AVX-512) e falha em PCs que nao as tem. Fica AVX2,
       # presente em processadores Intel e AMD desde 2013.
-      - run: pnpm tauri build --bundles nsis
+      # Sem os artefatos de atualizacao: build de teste nao precisa da chave de assinatura.
+      - run: pnpm tauri build --bundles nsis --config '{"bundle":{"createUpdaterArtifacts":false}}'
+        shell: bash
         env:
           GGML_NATIVE: "OFF"
-          # Os artefatos de atualizacao exigem a chave, mesmo sem publicar.
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
 
       - uses: actions/upload-artifact@v4
         with:
