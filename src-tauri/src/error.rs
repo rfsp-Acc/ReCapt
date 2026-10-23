@@ -12,8 +12,14 @@ pub enum AppError {
     NoAudio,
     #[error("a sessao ja esta sendo transcrita")]
     AlreadyTranscribing,
-    #[error("modelo do Whisper nao encontrado em {}", .0.display())]
-    NoWhisperModel(std::path::PathBuf),
+    #[error("o modelo de transcrição ainda não foi baixado; use o botão \"Baixar modelo\" no topo")]
+    NoWhisperModel,
+    #[error("o modelo já está sendo baixado")]
+    AlreadyDownloading,
+    #[error("falha ao baixar o modelo: {0}")]
+    Download(#[from] reqwest::Error),
+    #[error("o download do modelo foi interrompido; tente de novo")]
+    DownloadIncomplete,
     #[error(transparent)]
     Transcribe(#[from] crate::whisper::engine::TranscribeError),
     #[error("sem permissao de escrita em {}", .0.display())]

@@ -397,10 +397,10 @@ fn copy_dir(from: &Path, to: &Path) -> std::io::Result<()> {
     Ok(())
 }
 
-/// Apaga a pasta se so tiver o `.DS_Store` do Finder.
+/// Apaga a pasta se so tiver arquivos do Finder (`.DS_Store`) ou do Explorer (`Thumbs.db`, `desktop.ini`).
 fn remove_if_empty(dir: &Path) {
     let Ok(entries) = fs::read_dir(dir) else { return };
-    if entries.flatten().all(|e| e.file_name() == ".DS_Store") {
+    if entries.flatten().all(|e| matches!(e.file_name().to_str(), Some(".DS_Store" | "Thumbs.db" | "desktop.ini"))) {
         let _ = fs::remove_dir_all(dir);
     }
 }

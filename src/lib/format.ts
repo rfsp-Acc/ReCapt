@@ -37,7 +37,7 @@ export function dayLabel(date: Date | null, today = new Date()): string {
 
 /** "/Users/fulano/Developer/x" -> "~/Developer/x": cabe melhor no cartao. */
 export function shortPath(path: string): string {
-  return path.replace(/^\/Users\/[^/]+/, "~");
+  return path.replace(/^(\/Users\/[^/]+|[A-Za-z]:\\Users\\[^\\]+)/, "~");
 }
 
 /** "45 s", "3 min 20 s", "32 min", "1 h 02 min": segundos so importam em gravacoes curtas. */

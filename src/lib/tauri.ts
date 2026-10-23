@@ -86,6 +86,19 @@ export interface OutputDir {
   isDefault: boolean;
 }
 
+export interface ModelStatus {
+  /** `null` enquanto nenhum modelo foi baixado. */
+  installed: string | null;
+  recommended: string;
+  recommendedSizeMb: number;
+}
+
+export interface ModelDownloadProgress {
+  downloaded: number;
+  /** `null` se o servidor nao informar o tamanho. */
+  total: number | null;
+}
+
 export const api = {
   startRecording: (project: string, front: string, theme: string, subject: string) =>
     invoke<RecordingStatus>("start_recording", { project, front, theme, subject }),
@@ -120,6 +133,10 @@ export const api = {
   getTranscriptionLanguage: () => invoke<TranscriptionLanguage>("get_transcription_language"),
   setTranscriptionLanguage: (language: TranscriptionLanguage) =>
     invoke<TranscriptionLanguage>("set_transcription_language", { language }),
+  modelStatus: () => invoke<ModelStatus>("model_status"),
+  downloadModel: () => invoke<ModelStatus>("download_model"),
+  onModelDownloadProgress: (cb: (p: ModelDownloadProgress) => void) =>
+    listen<ModelDownloadProgress>("model-download-progress", (e) => cb(e.payload)),
   transcribe: (id: string) => invoke<Session>("transcribe", { id }),
   onTranscriptionProgress: (cb: (p: TranscriptionProgress) => void) =>
     listen<TranscriptionProgress>("transcription-progress", (e) => cb(e.payload)),

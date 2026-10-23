@@ -46,8 +46,7 @@ pub async fn transcribe(
     }
 
     let app_data = app.path().app_data_dir().map_err(|e| std::io::Error::other(e.to_string()))?;
-    let model = models::find(&app_data)
-        .ok_or_else(|| AppError::NoWhisperModel(models::models_dir(&app_data)))?;
+    let model = models::find(&app_data).ok_or(AppError::NoWhisperModel)?;
 
     if !state.0.lock().unwrap().insert(id.clone()) {
         return Err(AppError::AlreadyTranscribing);

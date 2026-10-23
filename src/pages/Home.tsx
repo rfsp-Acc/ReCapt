@@ -3,6 +3,7 @@ import { AddProjectDialog } from "../components/AddProjectDialog";
 import { CaptureCard } from "../components/CaptureCard";
 import { DeleteSessionDialog } from "../components/DeleteSessionDialog";
 import { Icon } from "../components/Icon";
+import { ModelCard } from "../components/ModelCard";
 import { Notices } from "../components/Notices";
 import { RenameSessionDialog } from "../components/RenameSessionDialog";
 import { SessionList } from "../components/SessionList";
@@ -18,6 +19,7 @@ import { useRecording } from "../hooks/useRecording";
 import { useSessions } from "../hooks/useSessions";
 import { useTranscription } from "../hooks/useTranscription";
 import { useTranscriptionLanguage } from "../hooks/useTranscriptionLanguage";
+import { useWhisperModel } from "../hooks/useWhisperModel";
 import { shortPath } from "../lib/format";
 import { api, RenameTarget, Session } from "../lib/tauri";
 
@@ -40,6 +42,9 @@ export function Home() {
   // Trocar a pasta muda quais projetos e sessoes aparecem.
   const outputDir = useOutputDir(refreshAll);
   const language = useTranscriptionLanguage();
+  const model = useWhisperModel(
+    useCallback(() => notices.push("success", "Modelo baixado. As reuniões já podem ser transcritas."), [notices.push]),
+  );
   const mics = useInputDevices();
   const [target, setTarget] = useLastTarget();
   const [subject, setSubject] = useState("");
@@ -57,6 +62,7 @@ export function Home() {
   useErrorNotice(transcription.error, notices.push);
   useErrorNotice(outputDir.error, notices.push);
   useErrorNotice(language.error, notices.push);
+  useErrorNotice(model.error, notices.push);
   useErrorNotice(mics.error, notices.push);
   useErrorNotice(sessions.error, notices.push);
   useErrorNotice(projects.error, notices.push);
@@ -121,7 +127,7 @@ export function Home() {
       if (!moved) return;
       refreshAll();
       const place = [moved.project, moved.front, moved.theme].join(" / ");
-      const parent = moved.path.slice(0, moved.path.lastIndexOf("/"));
+      const parent = moved.path.slice(0, Math.max(moved.path.lastIndexOf("/"), moved.path.lastIndexOf("\\")));
       notices.push(
         "success",
         place === [session.project, session.front, session.theme].join(" / ")
@@ -182,6 +188,10 @@ export function Home() {
         </header>
 
         <main className="content">
+          {model.status && !model.status.installed && (
+            <ModelCard status={model.status} progress={model.progress} onDownload={model.download} />
+          )}
+
           <CaptureCard
             status={rec.status}
             elapsed={rec.elapsed}

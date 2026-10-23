@@ -41,6 +41,14 @@
       "minimumSystemVersion": "14.2",
       "signingIdentity": "-",
       "entitlements": "./Entitlements.plist"
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": [
+          "PortugueseBR"
+        ]
+      }
     }
   }
 }

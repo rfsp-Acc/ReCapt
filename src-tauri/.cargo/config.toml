@@ -1,0 +1,4 @@
+# Embute o runtime do Visual C++ no .exe: o ReCapt roda em PCs sem o
+# "Microsoft Visual C++ Redistributable" instalado (o whisper.cpp depende dele).
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]

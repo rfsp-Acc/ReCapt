@@ -5,7 +5,7 @@ mod session;
 mod settings;
 mod whisper;
 
-use commands::{capture, files, transcribe};
+use commands::{capture, files, model, transcribe};
 use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -21,6 +21,7 @@ pub fn run() {
         })
         .manage(capture::CaptureState::default())
         .manage(transcribe::TranscribeState::default())
+        .manage(model::ModelState::default())
         .invoke_handler(tauri::generate_handler![
             capture::start_recording,
             capture::pause_recording,
@@ -48,6 +49,8 @@ pub fn run() {
             files::open_output_dir,
             files::choose_front_dir,
             files::reset_front_dir,
+            model::model_status,
+            model::download_model,
             transcribe::transcribe,
             transcribe::get_transcription_language,
             transcribe::set_transcription_language,
