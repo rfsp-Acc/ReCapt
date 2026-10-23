@@ -19,6 +19,7 @@ import { useRecording } from "../hooks/useRecording";
 import { useSessions } from "../hooks/useSessions";
 import { useTranscription } from "../hooks/useTranscription";
 import { useTranscriptionLanguage } from "../hooks/useTranscriptionLanguage";
+import { useUpdater } from "../hooks/useUpdater";
 import { useWhisperModel } from "../hooks/useWhisperModel";
 import { shortPath } from "../lib/format";
 import { api, RenameTarget, Session } from "../lib/tauri";
@@ -57,6 +58,11 @@ export function Home() {
   const closeRename = useCallback(() => setRenaming(null), []);
   const [deleting, setDeleting] = useState<Session | null>(null);
   const closeDelete = useCallback(() => setDeleting(null), []);
+
+  useUpdater(
+    rec.status.recording || rec.saving || Object.keys(transcription.progress).length > 0 || model.progress !== null,
+    notices.push,
+  );
 
   useErrorNotice(rec.error, notices.push);
   useErrorNotice(transcription.error, notices.push);

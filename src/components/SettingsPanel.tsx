@@ -1,4 +1,5 @@
-import { useEffect } from "react";
+import { getVersion } from "@tauri-apps/api/app";
+import { useEffect, useState } from "react";
 import { InputDevice, OutputDir, TranscriptionLanguage } from "../lib/tauri";
 import { Icon } from "./Icon";
 
@@ -26,6 +27,11 @@ const LANGUAGES: { value: TranscriptionLanguage; label: string }[] = [
 ];
 
 export function SettingsPanel(p: Props) {
+  const [version, setVersion] = useState("");
+  useEffect(() => {
+    getVersion().then(setVersion).catch(() => {});
+  }, []);
+
   useEffect(() => {
     if (!p.open) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && p.onClose();
@@ -119,6 +125,9 @@ export function SettingsPanel(p: Props) {
               : "Vale para as próximas transcrições. Use \"Transcrever novamente\" para refazer uma sessão."}
           </span>
         </div>
+
+        {/* Atualizacoes chegam sozinhas (useUpdater); a versao ajuda a saber se ja chegaram. */}
+        {version && <p className="settings-version">ReCapt {version}</p>}
       </aside>
     </div>
   );

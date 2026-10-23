@@ -49,6 +49,19 @@
           "PortugueseBR"
         ]
       }
+    },
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "requireSignedVersion": true,
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDU1NzAxRURCRjRFQTAxMjgKUldRb0FlcjAyeDV3VlVRTXBqYmpBVDFlanBJSjZhSGFlWmFmYndYTzI4RTZ6YlFHVE9vbkllZ00K",
+      "endpoints": [
+        "https://github.com/rfsp-Acc/ReCapt-releases/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
     }
   }
 }

@@ -1,5 +1,6 @@
 # Gera o instalador do ReCapt para Windows (NSIS) numa maquina Windows do GitHub.
 # Disparo manual em Actions > "Build Windows" > "Run workflow"; o .exe sai como artefato.
+# Build de teste: nao publica nada. Versoes para os usuarios saem por release.yml.
 name: Build Windows
 
 on:
@@ -37,6 +38,9 @@ jobs:
       - run: pnpm tauri build --bundles nsis
         env:
           GGML_NATIVE: "OFF"
+          # Os artefatos de atualizacao exigem a chave, mesmo sem publicar.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
 
       - uses: actions/upload-artifact@v4
         with:

@@ -543,6 +543,7 @@ button:disabled { opacity: 0.45; cursor: default; }
 @keyframes slide { from { transform: translateX(24px); opacity: 0; } }
 
 .settings-header { display: flex; align-items: center; justify-content: space-between; }
+.settings-version { margin-top: auto; font-size: 0.78rem; color: var(--text-3); }
 .settings-header h2 { font-size: 1.1rem; font-weight: 650; }
 
 .field { display: flex; flex-direction: column; gap: 8px; }

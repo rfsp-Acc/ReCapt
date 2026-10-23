@@ -1,0 +1,90 @@
+# Publica uma versao do ReCapt para Windows e Mac em rfsp-Acc/ReCapt-releases (publico).
+# Disparado pela tag criada por `pnpm release <versao>`. O latest.json da release e o que
+# os apps instalados consultam para se atualizar sozinhos.
+#
+# Segredos deste repositorio:
+# - TAURI_SIGNING_PRIVATE_KEY: chave que assina as atualizacoes (~/.tauri/recapt-updater.key)
+# - RELEASES_TOKEN: token com permissao de escrita em rfsp-Acc/ReCapt-releases
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+env:
+  RELEASES_REPO: rfsp-Acc/ReCapt-releases
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    outputs:
+      id: ${{ steps.create.outputs.id }}
+    steps:
+      # Rascunho ate os dois sistemas terminarem: o app nunca ve uma versao pela metade.
+      - id: create
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" -R "$RELEASES_REPO" --draft \
+            --title "ReCapt ${GITHUB_REF_NAME#v}" \
+            --notes "Instale pelo arquivo .exe (Windows). Quem já tem o ReCapt recebe esta versão sozinho."
+          id=$(gh api "repos/$RELEASES_REPO/releases" --jq ".[] | select(.tag_name == \"$GITHUB_REF_NAME\") | .id")
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: create-release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # GGML_NATIVE=OFF no Windows: sem as instrucoes do processador do runner (ver windows.yml).
+          # No Mac fica ON: o runner e Apple Silicon, compativel com todos os Macs M.
+          - os: windows-latest
+            args: --bundles nsis
+            ggml_native: "OFF"
+          - os: macos-latest
+            args: --bundles app
+            ggml_native: "ON"
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          key: ggml-portable
+
+      - run: pnpm install --frozen-lockfile
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
+          GGML_NATIVE: ${{ matrix.ggml_native }}
+        with:
+          owner: rfsp-Acc
+          repo: ReCapt-releases
+          releaseId: ${{ needs.create-release.outputs.id }}
+          tauriScript: pnpm tauri
+          args: ${{ matrix.args }}
+          updaterJsonPreferNsis: true
+
+  publish:
+    needs: [create-release, build]
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: gh release edit "$GITHUB_REF_NAME" -R "$RELEASES_REPO" --draft=false --latest
