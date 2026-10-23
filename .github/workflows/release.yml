@@ -80,6 +80,8 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
           GGML_NATIVE: ${{ matrix.ggml_native }}
+          # Pasta curta no Windows: o build dos shaders do Vulkan passa do limite de 260 caracteres.
+          CARGO_TARGET_DIR: ${{ runner.os == 'Windows' && 'C:\t' || format('{0}/src-tauri/target', github.workspace) }}
         with:
           owner: rfsp-Acc
           repo: ReCapt-releases
