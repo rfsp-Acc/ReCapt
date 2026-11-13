@@ -25,10 +25,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
         run: |
-          gh release create "$GITHUB_REF_NAME" -R "$RELEASES_REPO" --draft \
-            --title "ReCapt ${GITHUB_REF_NAME#v}" \
-            --notes "Instale pelo arquivo .exe (Windows) ou .dmg (Mac). Quem já tem o ReCapt recebe esta versão sozinho."
-          id=$(gh api "repos/$RELEASES_REPO/releases" --jq ".[] | select(.tag_name == \"$GITHUB_REF_NAME\") | .id")
+          id=$(gh api "repos/$RELEASES_REPO/releases" -X POST \
+            -f tag_name="$GITHUB_REF_NAME" \
+            -f name="ReCapt ${GITHUB_REF_NAME#v}" \
+            -f body="Instale pelo arquivo .exe (Windows) ou .dmg (Mac). Quem já tem o ReCapt recebe esta versão sozinho." \
+            -F draft=true --jq .id)
           echo "id=$id" >> "$GITHUB_OUTPUT"
 
   build:
