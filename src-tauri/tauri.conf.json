@@ -55,7 +55,7 @@
   "plugins": {
     "updater": {
       "requireSignedVersion": true,
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDU1NzAxRURCRjRFQTAxMjgKUldRb0FlcjAyeDV3VlVRTXBqYmpBVDFlanBJSjZhSGFlWmFmYndYTzI4RTZ6YlFHVE9vbkllZ00K",
+      "pubkey": "ZFc1MGNuVnpkR1ZrSUdOdmJXMWxiblE2SUcxcGJtbHphV2R1SUhCMVlteHBZeUJyWlhrNklFRXpSa05ET0RZM1JEQTJNVGhHT0VVS1VsZFRUMm95U0ZGYU9HbzRiM2d2V2paeVRWZzJWbmxDWms1WGRHSmhTR1pxT1VaV01XcDBVa3hDZEV3dk5FTlRaWGxxVERaa2RHZ0s=",
       "endpoints": [
         "https://github.com/rfsp-Acc/ReCapt-releases/releases/latest/download/latest.json"
       ],
