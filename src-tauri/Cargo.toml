@@ -1,6 +1,6 @@
 [package]
 name = "recapt"
-version = "0.1.0"
+version = "0.1.1"
 description = "Captura, transcricao e analise local de reunioes"
 authors = ["Rafael Pedroso"]
 edition = "2024"
